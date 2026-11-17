@@ -1,0 +1,116 @@
+name: Komga release check
+
+# Notices each new stable Komga release and runs the seam 1 suite against it: the Bridge is
+# compiled against that release's jars and loaded into its official image (loading is checked, not
+# only behaviour: ADR-0003). On a pass it opens a pull request adding the version to
+# bridge/src/main/resources/supported-komga-versions.txt; on a failure it opens an issue listing
+# the failing tests. Nothing is merged or released by this workflow: merging the pull request is
+# the release step, and until then the Bridge stays inactive on that Komga version.
+
+on:
+  schedule:
+    - cron: "17 5 * * *" # daily
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Komga version to check (default: the newest stable release)"
+        required: false
+        type: string
+
+concurrency:
+  group: komga-release-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+      new: ${{ steps.detect.outputs.new }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the scripts
+        run: sh scripts/komga-release-check/selftest.sh
+      - name: Find the newest Komga release
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KOMGA_VERSION: ${{ inputs.version }}
+        run: sh scripts/komga-release-check/detect.sh | tee -a "$GITHUB_OUTPUT"
+
+  test:
+    needs: detect
+    if: needs.detect.outputs.new == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write # push the branch that adds the version
+      pull-requests: write
+      issues: write
+    env:
+      VERSION: ${{ needs.detect.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The version is not on the list yet, so run.sh tests it as a candidate: the Bridge is built
+      # against gotson/komga:$VERSION and started on it with that version allowed.
+      - name: Seam 1 against the new Komga
+        id: seam1
+        env:
+          KOMGA_VERSION: ${{ env.VERSION }}
+        run: |
+          set -o pipefail
+          sh tests/seam1/run.sh 2>&1 | tee seam1.log
+
+      - name: Keep the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seam1-komga-${{ env.VERSION }}
+          path: seam1.log
+
+      - name: Open a pull request adding the version
+        if: success()
+        run: |
+          BRANCH="komga-release/$VERSION"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1 \
+            || [ -n "$(gh pr list --head "$BRANCH" --state all --json number --jq '.[].number')" ]; then
+            echo "A branch or pull request for Komga $VERSION already exists; nothing to do."
+            exit 0
+          fi
+          sh scripts/komga-release-check/add-version.sh "$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add bridge/src/main/resources/supported-komga-versions.txt
+          git commit -m "Support Komga $VERSION"
+          git push origin "$BRANCH"
+          {
+            echo "The seam 1 suite passed against \`gotson/komga:$VERSION\`: the Bridge compiled against its jars, loaded into the official image and was active, and every behaviour test passed."
+            echo
+            echo "This adds $VERSION to \`supported-komga-versions.txt\`. Merging it is the release step: the next Plugin Host image built from main carries a Bridge that is active on Komga $VERSION."
+            echo
+            echo "Run: $RUN_URL"
+          } > pr-body.md
+          gh pr create --base "${{ github.event.repository.default_branch }}" --head "$BRANCH" \
+            --title "Support Komga $VERSION" --body-file pr-body.md
+
+      - name: Report what broke
+        if: failure() && steps.seam1.outcome == 'failure'
+        run: |
+          sh scripts/komga-release-check/failure-report.sh "$VERSION" seam1.log "$RUN_URL" > report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          TITLE="Komga $VERSION: seam 1 failed"
+          EXISTING="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+            --jq "map(select(.title == \"$TITLE\"))[0].number // empty")"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file report.md
+          else
+            gh issue create --title "$TITLE" --body-file report.md
+          fi

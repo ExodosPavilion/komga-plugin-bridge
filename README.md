@@ -56,3 +56,7 @@ Every hook is called as `hook(params, api)`, with `api.settings` (`all()`, `get(
 ## Events
 
 The Bridge forwards every Komga domain event (including `LibraryScanned`, which Komga's public stream omits) to `POST /bridge/events` as `{type, data}`, with only ids and names in `data` (see `EventMapper.kt`). Forwarding is queued on its own thread, so a slow Plugin Host never holds up Komga. A plugin subscribes in its manifest, `"contributions": [{"type": "events", "subscribe": ["LibraryScanned"]}]`, and handles events in `onEvent({ type, data }, api)`. It receives only what it subscribed to. Event calls go through the supervisor like metadata calls: time limit, failure record, auto-disable. Note `LibraryScanned` fires before Komga's follow-up tasks (analysis, metadata refresh) have run.
+
+## Shared secret
+
+The Plugin Host generates a secret at first start (kept in its own `/state`, reused later) and writes it to `bridge.json` beside the Bridge jar. Every Plugin Host route except `public` ones needs `Authorization: Bearer <secret>`. The other way, the Bridge answers calls under `/plugin-bridge/host/` (outside Komga's own security) only with the same header (`HostCallFilter`); `GET /plugin-bridge/host/ping` is the liveness check. Later features add handlers behind that filter. No admin configuration is needed.

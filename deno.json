@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "test:seam2": "deno test --allow-all tests/seam2/",
+    "host": "deno run --allow-all plugin-host/src/main.ts"
+  },
+  "fmt": {
+    "lineWidth": 100
+  }
+}

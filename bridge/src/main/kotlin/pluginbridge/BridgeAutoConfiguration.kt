@@ -17,6 +17,9 @@ class BridgeAutoConfiguration {
   fun pluginHostClient(): PluginHostClient = PluginHostClient(PluginHostClient.defaultConfigFile())
 
   @Bean
+  fun pluginHostEventForwarder(client: PluginHostClient): PluginHostEventForwarder = PluginHostEventForwarder(client)
+
+  @Bean
   fun pluginHostSeriesMetadataProvider(client: PluginHostClient): PluginHostSeriesMetadataProvider {
     println("[plugin-bridge] series metadata provider registered with Komga")
     return PluginHostSeriesMetadataProvider(client)

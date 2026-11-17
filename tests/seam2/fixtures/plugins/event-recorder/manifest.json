@@ -1,0 +1,6 @@
+{
+  "id": "event-recorder",
+  "version": "1.0.0",
+  "apiVersion": "1",
+  "contributions": [{ "type": "events", "subscribe": ["LibraryScanned", "SeriesAdded"] }]
+}

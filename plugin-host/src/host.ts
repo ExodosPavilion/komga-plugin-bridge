@@ -8,6 +8,8 @@ import type { HostContext } from "./context.ts";
 import { openDatabase } from "./db/database.ts";
 import { startHttpServer } from "./http/server.ts";
 import { discoverPlugins } from "./plugins/discovery.ts";
+import { CapabilityStore } from "./plugins/capabilities.ts";
+import { KomgaData } from "./plugins/komga-data.ts";
 import { PluginStore } from "./plugins/store.ts";
 import { PluginSupervisor } from "./plugins/supervisor.ts";
 
@@ -22,7 +24,15 @@ export async function startPluginHost(config: Config): Promise<PluginHost> {
   const plugins = new PluginStore(db);
   for (const plugin of await discoverPlugins(config.pluginsDir)) plugins.upsert(plugin);
 
-  const supervisor = new PluginSupervisor(plugins, config);
+  const capabilities = new CapabilityStore(db);
+  for (const plugin of plugins.list()) await capabilities.approveDeclared(plugin);
+  const komga = new KomgaData(config, capabilities);
+
+  // The Plugin API's `komga.*` calls arrive here, from a plugin's process.
+  const supervisor = new PluginSupervisor(plugins, config, (pluginId, method, args) => {
+    if (!method.startsWith("komga.")) throw new Error(`${method} does not exist`);
+    return komga.call(pluginId, method.slice("komga.".length), args);
+  });
   await supervisor.startEnabled();
 
   const { secret } = await installBridge(config);

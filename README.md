@@ -40,3 +40,7 @@ With a local Deno, `deno task test:seam2` runs seam 2 directly.
 ## Running it
 
 In your compose file, add the Plugin Host, and give Komga the shared volume and one variable. See `tests/seam1/compose.yaml` for a working example; the Komga lines marked `added` are all that changes. Start the Plugin Host once before Komga, so the Bridge is in the shared volume (a missing jar stops Komga from starting). Mount library folders into the Plugin Host read-only at the same paths as in Komga, and list them in `PLUGIN_HOST_LIBRARY_ROOTS`. Drop plugin folders into the `/plugins` volume and restart the Plugin Host.
+
+## Komga data for plugins
+
+A hook receives `{ komga }` as its second argument: `getSeries`, `getBook`, `listLibraries` (capability `komga:read`) and `updateSeriesMetadata`, `updateBookMetadata` (capability `komga:write`). The Plugin Host checks the plugin's approved capabilities, then calls Komga's REST API itself with the admin API key from `KOMGA_URL` and `KOMGA_API_KEY`, set once on the Plugin Host. The key never reaches a plugin. Until the approval ticket lands, a folder-installed plugin is approved for the capabilities its `manifest.json` declares.

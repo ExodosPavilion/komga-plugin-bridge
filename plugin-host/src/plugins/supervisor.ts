@@ -7,12 +7,16 @@ import type { PluginStore } from "./store.ts";
 export class PluginSupervisor {
   private processes = new Map<string, PluginProcess>();
 
-  constructor(private readonly store: PluginStore, private readonly config: Config) {}
+  constructor(
+    private readonly store: PluginStore,
+    private readonly config: Config,
+    private readonly onHostCall?: (pluginId: string, method: string, args: unknown[]) => Promise<unknown>,
+  ) {}
 
   async startEnabled(): Promise<void> {
     for (const plugin of this.store.list()) {
       if (!plugin.enabled) continue;
-      const process = new PluginProcess(plugin, this.config);
+      const process = new PluginProcess(plugin, this.config, this.onHostCall);
       this.processes.set(plugin.id, process);
       try {
         await process.start();

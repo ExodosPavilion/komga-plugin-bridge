@@ -1,0 +1,5 @@
+{
+  "id": "komga-reader",
+  "version": "1.0.0",
+  "capabilities": ["komga:read"]
+}

@@ -16,7 +16,12 @@ export class PluginProcess {
   private nextId = 1;
   private alive = false;
 
-  constructor(private readonly plugin: InstalledPlugin, private readonly config: Config) {}
+  /** `onHostCall` answers the plugin's calls into the host (the Plugin API), e.g. "komga.getSeries". */
+  constructor(
+    private readonly plugin: InstalledPlugin,
+    private readonly config: Config,
+    private readonly onHostCall?: (pluginId: string, method: string, args: unknown[]) => Promise<unknown>,
+  ) {}
 
   get pid(): number | null {
     return this.alive && this.child ? this.child.pid : null;
@@ -77,6 +82,17 @@ export class PluginProcess {
     await this.child.status;
   }
 
+  private async answerHostCall(message: { call: number; method: string; args: unknown[] }) {
+    let reply: Record<string, unknown>;
+    try {
+      if (!this.onHostCall) throw new Error(`${message.method} is not available`);
+      reply = { replyTo: message.call, result: (await this.onHostCall(this.plugin.id, message.method, message.args)) ?? null };
+    } catch (error) {
+      reply = { replyTo: message.call, error: (error as Error).message };
+    }
+    await this.writer?.write(new TextEncoder().encode(JSON.stringify(reply) + "\n")).catch(() => {});
+  }
+
   private async readLines(child: Deno.ChildProcess, ready: PromiseWithResolvers<void>) {
     let buffer = "";
     for await (const chunk of child.stdout.pipeThrough(new TextDecoderStream())) {
@@ -87,7 +103,8 @@ export class PluginProcess {
         buffer = buffer.slice(newline + 1);
         if (!line.trim()) continue;
         const message = JSON.parse(line);
-        if (message.ready) ready.resolve();
+        if (message.call !== undefined) this.answerHostCall(message);
+        else if (message.ready) ready.resolve();
         else if (message.id === undefined) ready.reject(new Error(message.error));
         else {
           const call = this.pending.get(message.id);

@@ -52,6 +52,12 @@ const KEY_FILE = "/state/komga-api-key";
 
 /** What an admin does after setup: an API key for the Plugin Host (docs/setup.md), here via the shared /state volume. */
 async function giveHostAnApiKey(): Promise<void> {
+  // Only seam 1 shares /state with the Plugin Host; the setup check follows the guide and makes its own key.
+  try {
+    await Deno.stat("/state");
+  } catch {
+    return;
+  }
   try {
     if ((await Deno.readTextFile(KEY_FILE)).trim()) return;
   } catch { /* not written yet */ }

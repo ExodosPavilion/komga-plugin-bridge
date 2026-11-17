@@ -1,13 +1,10 @@
 package pluginbridge
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 
@@ -17,9 +14,9 @@ import java.time.Duration
  * Plugin Host cannot be reached the answer is a plain 502.
  */
 class PluginHostProxy(
-  private val configFile: Path,
+  configFile: Path,
 ) {
-  private val mapper = ObjectMapper()
+  private val host = PluginHostConfig(configFile)
   private val http =
     HttpClient
       .newBuilder()
@@ -33,13 +30,8 @@ class PluginHostProxy(
     hostPath: String,
   ) {
     try {
-      val config = mapper.readTree(Files.readAllBytes(configFile))
       val query = request.queryString?.let { "?$it" } ?: ""
-      val builder =
-        HttpRequest
-          .newBuilder(URI.create(config.get("pluginHostUrl").asText() + hostPath + query))
-          .timeout(Duration.ofMinutes(5))
-          .header("Authorization", "Bearer " + config.get("secret").asText())
+      val builder = host.request(hostPath + query, Duration.ofMinutes(5))
       request.contentType?.let { builder.header("Content-Type", it) }
       request.getHeader("Accept")?.let { builder.header("Accept", it) }
       val hasBody = request.contentLengthLong != 0L && request.method in BODY_METHODS

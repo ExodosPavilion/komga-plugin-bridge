@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Bean
 class HostCallAutoConfiguration {
   @Bean
   fun hostCallFilter(): FilterRegistrationBean<HostCallFilter> =
-    FilterRegistrationBean(HostCallFilter(SharedSecret(PluginHostClient.defaultConfigFile()))).apply {
+    FilterRegistrationBean(HostCallFilter(SharedSecret(PluginHostConfig.defaultFile()))).apply {
       addUrlPatterns("/plugin-bridge/host", "/plugin-bridge/host/*")
       order = Int.MIN_VALUE + 10 // before everything else in the servlet chain
     }

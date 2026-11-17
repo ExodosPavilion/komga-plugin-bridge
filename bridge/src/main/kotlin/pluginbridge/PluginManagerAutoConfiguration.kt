@@ -7,5 +7,5 @@ import org.springframework.context.annotation.Bean
 @AutoConfiguration
 class PluginManagerAutoConfiguration {
   @Bean
-  fun pluginManagerController(): PluginManagerController = PluginManagerController(PluginHostProxy(PluginHostClient.defaultConfigFile()))
+  fun pluginManagerController(): PluginManagerController = PluginManagerController(PluginHostProxy(PluginHostConfig.defaultFile()))
 }

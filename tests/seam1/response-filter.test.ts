@@ -3,6 +3,8 @@ import { ADMIN, KOMGA_URL, startedAndClaimed, waitFor } from "./support/komga.ts
 
 // A fixture plugin ("me-filter") filters GET /api/v2/users/me. The bundled web UI is told apart
 // from other clients by X-Requested-With: XMLHttpRequest plus the session cookie.
+// The fixture announces the glob "/api/v2/users/*", so this also exercises the Bridge's side of the
+// route rule (tests/fixtures/route-globs.json is the shared list of cases; seam 2 runs the Host's side).
 const ME = `${KOMGA_URL}/api/v2/users/me`;
 const basic = "Basic " + btoa(`${ADMIN.email}:${ADMIN.password}`);
 

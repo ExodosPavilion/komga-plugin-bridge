@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Bean
 class ResponseFilterAutoConfiguration {
   @Bean
   fun responseFilter(): FilterRegistrationBean<ResponseFilter> {
-    val client = PluginHostClient(PluginHostClient.defaultConfigFile())
+    val client = PluginHostClient(PluginHostConfig.defaultFile())
     return FilterRegistrationBean(ResponseFilter(ResponseFilterRoutes(client), client)).apply {
       addUrlPatterns("/api/*")
       order = 0 // after Spring Security's chain (-100), so the session is already resolved

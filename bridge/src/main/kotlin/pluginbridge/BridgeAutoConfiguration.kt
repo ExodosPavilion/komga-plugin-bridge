@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Bean
 @AutoConfiguration
 class BridgeAutoConfiguration {
   @Bean
-  fun pluginHostClient(): PluginHostClient = PluginHostClient(PluginHostClient.defaultConfigFile())
+  fun pluginHostClient(): PluginHostClient = PluginHostClient(PluginHostConfig.defaultFile())
 
   @Bean
   fun pluginHostEventForwarder(client: PluginHostClient): PluginHostEventForwarder = PluginHostEventForwarder(client)

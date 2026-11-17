@@ -34,7 +34,7 @@ class BridgeStatusReporter(
 
   /** Tries for about half a minute, because the Plugin Host may still be starting. */
   private fun report() {
-    val client = PluginHostClient(PluginHostClient.defaultConfigFile())
+    val client = PluginHostClient(PluginHostConfig.defaultFile())
     val body =
       mapOf(
         "instanceId" to instanceId,

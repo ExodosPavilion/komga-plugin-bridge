@@ -2,11 +2,9 @@ package pluginbridge
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 
@@ -16,9 +14,10 @@ import java.time.Duration
  * erroring) yields null: the Bridge must never make a scan fail.
  */
 class PluginHostClient(
-  private val configFile: Path,
+  configFile: Path,
 ) {
   private val mapper = ObjectMapper()
+  private val host = PluginHostConfig(configFile)
   private val http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
 
   /** POSTs a JSON body to the Plugin Host and returns the JSON answer, or null on any failure. */
@@ -45,12 +44,7 @@ class PluginHostClient(
     body: Any?,
   ): JsonNode? =
     try {
-      val config = mapper.readTree(Files.readAllBytes(configFile))
-      val builder =
-        HttpRequest
-          .newBuilder(URI.create(config.get("pluginHostUrl").asText() + path))
-          .timeout(Duration.ofMillis(config.path("timeoutMillis").asLong(10_000)))
-          .header("Authorization", "Bearer " + config.get("secret").asText())
+      val builder = host.request(path)
       val request =
         if (body == null) {
           builder.GET().build()
@@ -77,14 +71,5 @@ class PluginHostClient(
 
   companion object {
     private val PAUSE_NANOS = Duration.ofSeconds(3).toNanos()
-
-    /** bridge.json next to the jar this class was loaded from. */
-    fun defaultConfigFile(): Path =
-      try {
-        val jar = Path.of(PluginHostClient::class.java.protectionDomain.codeSource.location.toURI())
-        jar.resolveSibling("bridge.json")
-      } catch (e: Exception) {
-        Path.of("/plugin-bridge/bridge.json")
-      }
   }
 }

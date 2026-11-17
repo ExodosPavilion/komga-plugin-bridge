@@ -43,6 +43,7 @@ Deno.test("on an unsupported Komga version the Bridge is inactive, Komga is stoc
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: "Gate", root: LIBRARY }),
   });
+  await created.body?.cancel();
   assert.ok(created.ok, `creating library: ${created.status}`);
 
   // Komga scans and serves the series as stock Komga: nothing from the plugin.

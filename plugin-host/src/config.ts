@@ -27,6 +27,8 @@ export interface Config {
   /** Komga's REST API, used on behalf of plugins. Optional until a plugin needs it. */
   komgaUrl?: string;
   komgaApiKey?: string;
+  /** GitHub's REST API, used to list a repository's releases. Tests point it at a fake. */
+  githubApiUrl?: string;
   /** The Deno executable used to start plugin processes. */
   denoPath: string;
 }
@@ -49,6 +51,7 @@ export function configFromEnv(env: Record<string, string | undefined> = Deno.env
     hostUrl: env.PLUGIN_HOST_URL ?? "http://plugin-host:8080",
     komgaUrl: env.KOMGA_URL || undefined,
     komgaApiKey: env.KOMGA_API_KEY || undefined,
+    githubApiUrl: env.PLUGIN_HOST_GITHUB_API_URL || undefined,
     denoPath: Deno.execPath(),
   };
 }

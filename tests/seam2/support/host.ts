@@ -47,6 +47,8 @@ export interface TestHostOptions {
   bridgeTimeoutMs?: number;
   komgaUrl?: string;
   komgaApiKey?: string;
+  /** Where the host looks for GitHub releases (a fake release server). */
+  githubApiUrl?: string;
   /**
    * Approve and enable, as an admin would, every plugin that is waiting for capability approval
    * (default true, so tests about something else need not repeat it). Tests of the approval flow
@@ -109,6 +111,7 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
     hostUrl: "http://plugin-host.test:8080",
     komgaUrl: options.komgaUrl,
     komgaApiKey: options.komgaApiKey,
+    githubApiUrl: options.githubApiUrl,
     denoPath: Deno.execPath(),
   };
 

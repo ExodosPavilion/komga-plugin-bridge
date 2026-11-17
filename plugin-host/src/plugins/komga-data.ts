@@ -1,7 +1,7 @@
 // Komga's data on behalf of plugins. The plugin asks (over its pipe to the host); the host checks
 // the plugin's approved capabilities, then makes the real request to Komga's REST API with the
 // admin API key. The key lives only in this object and in the request headers it builds.
-import type { Config } from "../config.ts";
+import { type Config, komgaApiKeyOf } from "../config.ts";
 import type { CapabilityStore, KomgaCapability } from "./capabilities.ts";
 
 interface Operation {
@@ -42,14 +42,15 @@ export class KomgaData {
           `declare it in manifest.json and have it approved`,
       );
     }
-    if (!this.config.komgaUrl || !this.config.komgaApiKey) {
+    const apiKey = komgaApiKeyOf(this.config);
+    if (!this.config.komgaUrl || !apiKey) {
       throw new Error("Komga access is not configured on the Plugin Host (KOMGA_URL and KOMGA_API_KEY)");
     }
     const { method, path, body } = op.request(args);
     const response = await fetch(new URL(path, this.config.komgaUrl), {
       method,
       headers: {
-        "X-API-Key": this.config.komgaApiKey,
+        "X-API-Key": apiKey,
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       },
       body: body === undefined ? undefined : JSON.stringify(body),

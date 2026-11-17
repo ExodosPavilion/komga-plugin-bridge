@@ -3,7 +3,7 @@
 // A metadata plugin is one whose manifest has the contribution {"type": "metadata"}.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Config } from "../config.ts";
+import { type Config, komgaApiKeyOf } from "../config.ts";
 import { validateManifest } from "./manifest.ts";
 import type { LibraryScopes } from "./library-scope.ts";
 import type { InstalledPlugin } from "./store.ts";
@@ -33,12 +33,13 @@ export interface Clash {
 
 /** Komga's libraries, or the reason they could not be read. */
 export async function fetchLibraries(config: Config): Promise<{ libraries: KomgaLibrary[] } | { unavailable: string }> {
-  if (!config.komgaUrl || !config.komgaApiKey) {
+  const apiKey = komgaApiKeyOf(config);
+  if (!config.komgaUrl || !apiKey) {
     return { unavailable: "Komga access is not configured on the Plugin Host (KOMGA_URL and KOMGA_API_KEY)" };
   }
   try {
     const response = await fetch(new URL("/api/v1/libraries", config.komgaUrl), {
-      headers: { "X-API-Key": config.komgaApiKey },
+      headers: { "X-API-Key": apiKey },
     });
     if (!response.ok) {
       await response.body?.cancel();

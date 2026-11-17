@@ -27,10 +27,26 @@ export interface Config {
   /** Komga's REST API, used on behalf of plugins. Optional until a plugin needs it. */
   komgaUrl?: string;
   komgaApiKey?: string;
+  /**
+   * A file holding the API key, read each time it is needed (KOMGA_API_KEY_FILE), for setups where
+   * the key does not exist when the host starts. Used when KOMGA_API_KEY is not set.
+   */
+  komgaApiKeyFile?: string;
   /** GitHub's REST API, used to list a repository's releases. Tests point it at a fake. */
   githubApiUrl?: string;
   /** The Deno executable used to start plugin processes. */
   denoPath: string;
+}
+
+/** The admin API key: KOMGA_API_KEY, else the contents of the file KOMGA_API_KEY_FILE names (if it has any). */
+export function komgaApiKeyOf(config: Config): string | undefined {
+  if (config.komgaApiKey) return config.komgaApiKey;
+  if (!config.komgaApiKeyFile) return undefined;
+  try {
+    return Deno.readTextFileSync(config.komgaApiKeyFile).trim() || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function configFromEnv(env: Record<string, string | undefined> = Deno.env.toObject()): Config {
@@ -51,6 +67,7 @@ export function configFromEnv(env: Record<string, string | undefined> = Deno.env
     hostUrl: env.PLUGIN_HOST_URL ?? "http://plugin-host:8080",
     komgaUrl: env.KOMGA_URL || undefined,
     komgaApiKey: env.KOMGA_API_KEY || undefined,
+    komgaApiKeyFile: env.KOMGA_API_KEY_FILE || undefined,
     githubApiUrl: env.PLUGIN_HOST_GITHUB_API_URL || undefined,
     denoPath: Deno.execPath(),
   };

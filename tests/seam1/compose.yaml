@@ -31,6 +31,10 @@ services:
         condition: service_completed_successfully
     environment:
       PLUGIN_HOST_LIBRARY_ROOTS: /data,/enablement
+      # Plugins read library folders only as Komga lists them. The key does not exist until the
+      # tests have claimed Komga; they then write it to this file (support/komga.ts).
+      KOMGA_URL: http://komga:25600
+      KOMGA_API_KEY_FILE: /state/komga-api-key
       # The Bridge reaches the host through host-proxy, which can stage an outage.
       PLUGIN_HOST_URL: http://host-proxy:8080
       # Short limits keep the resilience tests quick; the slow plugin must not be auto-disabled.
@@ -107,6 +111,7 @@ services:
       - library:/data
       - enablement:/enablement
       - bridge:/plugin-bridge:ro # to read the shared secret, standing in for the Plugin Host
+      - state:/state # to hand the Plugin Host an API key once Komga is claimed
 
 volumes:
   bridge:

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 // Drives Komga the way a user or client would: only through its address.
 export const KOMGA_URL = Deno.env.get("KOMGA_URL") ?? "http://localhost:25600";
 export const ADMIN = { email: "admin@example.org", password: "seam1-password" };
@@ -43,7 +44,24 @@ export async function startedAndClaimed(): Promise<void> {
     }
     return true;
   });
+  await giveHostAnApiKey();
   await approveWaitingPlugins();
+}
+
+const KEY_FILE = "/state/komga-api-key";
+
+/** What an admin does after setup: an API key for the Plugin Host (docs/setup.md), here via the shared /state volume. */
+async function giveHostAnApiKey(): Promise<void> {
+  try {
+    if ((await Deno.readTextFile(KEY_FILE)).trim()) return;
+  } catch { /* not written yet */ }
+  const response = await api("/api/v2/users/me/api-keys", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ comment: "plugin host" }),
+  });
+  assert.equal(response.status, 200);
+  await Deno.writeTextFile(KEY_FILE, (await response.json()).key);
 }
 
 /**

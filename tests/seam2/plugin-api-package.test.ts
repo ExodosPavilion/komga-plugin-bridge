@@ -63,7 +63,7 @@ export default {
 
 Deno.test("the reference plugin and the plugin fixtures type-check against the package", async () => {
   const fixtures = join(repoRoot, "tests", "seam2", "fixtures", "plugins");
-  const typed = ["komga-reader", "komga-writer", "komga-none", "settings-user", "event-recorder", "storage-a", "storage-b"]
+  const typed = ["komga-reader", "komga-writer", "komga-none", "settings-user", "event-recorder", "storage-a", "storage-b", "response-filter"]
     .map((name) => join(fixtures, name, "index.ts"));
   const { code, output } = await deno(repoRoot, "check", join(repoRoot, "plugins", "reference", "index.ts"), ...typed);
   assert.equal(code, 0, output);

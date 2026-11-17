@@ -22,9 +22,10 @@ breaking change to the API is a new major `apiVersion`, additions are minor rele
 
 | Module | Covers |
 | --- | --- |
-| `plugin.ts` | `Plugin`: the hooks a module may export, grouped as `MetadataHooks`, `EventHooks`. |
+| `plugin.ts` | `Plugin`: the hooks a module may export, grouped as `MetadataHooks`, `EventHooks`, `FilterHooks`. |
 | `api.ts` | `PluginApi`: the second argument of every hook (`settings`, `storage`, `komga`). |
 | `metadata.ts` | Scan-time series and book metadata. |
+| `filtering.ts` | `filterResponse`: change API responses for the bundled web UI. |
 | `events.ts` | Komga's events as `KomgaEvent`, discriminated on `type`. |
 | `komga.ts` | `api.komga`: read and write Komga's data (capabilities `komga:read`, `komga:write`). |
 | `settings.ts`, `storage.ts` | `api.settings` and `api.storage`. |

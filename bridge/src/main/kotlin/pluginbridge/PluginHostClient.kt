@@ -35,22 +35,31 @@ class PluginHostClient(
     return answer
   }
 
+  /** GETs from the Plugin Host and returns the JSON answer, or null on any failure. Not paused: callers poll. */
+  fun get(path: String): JsonNode? = send(path, null)
+
   @Volatile private var pausedUntilNanos = System.nanoTime() - 1
 
   private fun send(
     path: String,
-    body: Any,
+    body: Any?,
   ): JsonNode? =
     try {
       val config = mapper.readTree(Files.readAllBytes(configFile))
-      val request =
+      val builder =
         HttpRequest
           .newBuilder(URI.create(config.get("pluginHostUrl").asText() + path))
           .timeout(Duration.ofMillis(config.path("timeoutMillis").asLong(10_000)))
           .header("Authorization", "Bearer " + config.get("secret").asText())
-          .header("Content-Type", "application/json")
-          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
-          .build()
+      val request =
+        if (body == null) {
+          builder.GET().build()
+        } else {
+          builder
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
+            .build()
+        }
       val response = http.send(request, HttpResponse.BodyHandlers.ofByteArray())
       if (response.statusCode() != 200) {
         println("[plugin-bridge] plugin host answered ${response.statusCode()} for $path")

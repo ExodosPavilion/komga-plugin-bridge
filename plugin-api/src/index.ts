@@ -2,6 +2,7 @@
 // loaded when the plugin runs. To extend the API, add a file and export it here.
 export type * from "./api.ts";
 export type * from "./events.ts";
+export type * from "./filtering.ts";
 export type * from "./komga.ts";
 export type * from "./manifest.ts";
 export type * from "./metadata.ts";

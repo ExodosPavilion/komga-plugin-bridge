@@ -19,7 +19,13 @@ export interface EventsContribution {
   subscribe: KomgaEventType[];
 }
 
-export type Contribution = EventsContribution;
+export interface ResponseFilterContribution {
+  type: "response-filter";
+  /** Komga API paths: `*` is one path segment, `**` anything. */
+  routes: string[];
+}
+
+export type Contribution = EventsContribution | ResponseFilterContribution;
 
 export interface PluginManifest {
   id: string;

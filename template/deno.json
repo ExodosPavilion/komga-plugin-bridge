@@ -1,9 +1,11 @@
 {
   "imports": {
-    "@komga-plugin-bridge/plugin-api": "jsr:@komga-plugin-bridge/plugin-api@^0.1.0"
+    "@komga-plugin-bridge/plugin-api": "jsr:@komga-plugin-bridge/plugin-api@^0.1.0",
+    "@komga-plugin-bridge/test-runner": "jsr:@komga-plugin-bridge/test-runner@^0.1.0"
   },
   "tasks": {
     "check": "deno check index.ts",
+    "test": "deno test --allow-all",
     "package": "deno run --allow-read --allow-write scripts/package.ts"
   },
   "fmt": {

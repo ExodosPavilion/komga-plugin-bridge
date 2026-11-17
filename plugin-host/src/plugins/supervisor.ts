@@ -7,6 +7,12 @@ import { type FailureKind, type FailureLog, PluginCallError } from "./failures.t
 import type { CapabilityStore } from "./capabilities.ts";
 import type { PluginStore } from "./store.ts";
 
+export class CapabilitiesNotApprovedError extends Error {
+  constructor(readonly pluginId: string, readonly pending: string[]) {
+    super(`${pluginId} cannot be enabled until its capabilities are approved: ${pending.join(", ")}`);
+  }
+}
+
 export class PluginSupervisor {
   private processes = new Map<string, PluginProcess>();
 
@@ -20,13 +26,13 @@ export class PluginSupervisor {
 
   async startEnabled(): Promise<void> {
     for (const plugin of this.store.list()) {
-      if (plugin.enabled) await this.start(plugin.id);
+      if (plugin.enabled && this.capabilities.pending(plugin.id).length === 0) await this.start(plugin.id);
     }
   }
 
   private async start(id: string): Promise<void> {
     const plugin = this.store.get(id);
-    if (!plugin) return;
+    if (!plugin || this.capabilities.pending(id).length > 0) return;
     const process = new PluginProcess(plugin, this.config, () => this.capabilities.approved(plugin.id), this.onHostCall);
     this.processes.set(id, process);
     try {
@@ -36,9 +42,14 @@ export class PluginSupervisor {
     }
   }
 
-  /** Admin action: turns a plugin on (for example after it was disabled automatically). */
+  /**
+   * Admin action: turns a plugin on (for example after it was disabled automatically). Throws
+   * CapabilitiesNotApprovedError while the plugin declares capabilities no admin has approved.
+   */
   async enable(id: string): Promise<boolean> {
     if (!this.store.get(id)) return false;
+    const pending = this.capabilities.pending(id);
+    if (pending.length > 0) throw new CapabilitiesNotApprovedError(id, pending);
     this.failures.recordSuccess(id);
     this.failures.markAutoDisabled(id, false);
     this.store.setEnabled(id, true);

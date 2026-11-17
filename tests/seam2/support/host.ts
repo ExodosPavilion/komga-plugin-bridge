@@ -45,6 +45,12 @@ export interface TestHostOptions {
   bridgeTimeoutMs?: number;
   komgaUrl?: string;
   komgaApiKey?: string;
+  /**
+   * Approve and enable, as an admin would, every plugin that is waiting for capability approval
+   * (default true, so tests about something else need not repeat it). Tests of the approval flow
+   * itself pass false.
+   */
+  approve?: boolean;
 }
 
 export async function startTestHost(options: TestHostOptions = {}): Promise<TestHost> {
@@ -95,6 +101,25 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
   };
 
   let host: PluginHost = await startPluginHost(config);
+  const approveWaiting = async () => {
+    if (options.approve === false) return;
+    const secret = JSON.parse(await readFile(join(dirs.bridge, "bridge.json"), "utf8")).secret;
+    const call = async (path: string, init?: RequestInit) => {
+      const response = await fetch(`${host.url}${path}`, {
+        ...init,
+        headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+      });
+      return await response.json().catch(() => null);
+    };
+    const list = await call("/api/plugin-capabilities") as { id: string; pending: string[] }[];
+    for (const plugin of list) {
+      if (plugin.pending.length === 0) continue;
+      const post = (path: string) => call(path, { method: "POST", body: JSON.stringify({ id: plugin.id }) });
+      await post("/api/plugins/approve");
+      await post("/api/plugins/enable");
+    }
+  };
+  await approveWaiting();
   const testHost: TestHost = {
     get url() {
       return host.url;
@@ -106,6 +131,7 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
     async restart() {
       await host.stop();
       host = await startPluginHost(config);
+      await approveWaiting();
     },
     async stop() {
       await host.stop();

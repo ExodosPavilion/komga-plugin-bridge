@@ -33,6 +33,7 @@ export async function discoverPlugins(pluginsDir: string): Promise<Discovery> {
   const found: DiscoveredPlugin[] = [];
   const refused: RefusedPlugin[] = [];
   for (const name of names) {
+    if (name.startsWith(".")) continue; // hidden: an install in progress (see install.ts)
     const dir = join(pluginsDir, name);
     let text: string;
     try {

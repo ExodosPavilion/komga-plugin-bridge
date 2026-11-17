@@ -4,10 +4,12 @@ import type { Config } from "./config.ts";
 import type { Database } from "./db/database.ts";
 import type { PluginSupervisor } from "./plugins/supervisor.ts";
 import type { PluginStore } from "./plugins/store.ts";
+import type { PluginData } from "./plugins/settings.ts";
 
 export interface HostContext {
   config: Config;
   db: Database;
   plugins: PluginStore;
+  pluginData: PluginData;
   supervisor: PluginSupervisor;
 }

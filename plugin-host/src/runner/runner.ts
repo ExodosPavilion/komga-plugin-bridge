@@ -10,7 +10,30 @@ console.log = console.info = console.debug = (...args: unknown[]) => console.err
 
 const out = (message: unknown) => Deno.stdout.writeSync(new TextEncoder().encode(JSON.stringify(message) + "\n"));
 
-let plugin: Record<string, (params: unknown) => unknown>;
+// Plugin API: calls from the plugin to the host, answered on stdin as {"apiReply": id, ...}.
+const apiPending = new Map<number, { resolve(v: unknown): void; reject(e: Error): void }>();
+let nextApiId = 1;
+function callHost(method: string, params?: unknown): Promise<unknown> {
+  const id = nextApiId++;
+  return new Promise((resolve, reject) => {
+    apiPending.set(id, { resolve, reject });
+    out({ api: id, method, params });
+  });
+}
+const api = {
+  settings: {
+    all: () => callHost("settings.all"),
+    get: (name: string) => callHost("settings.get", { name }),
+  },
+  storage: {
+    get: (key: string) => callHost("storage.get", { key }),
+    set: (key: string, value: unknown) => callHost("storage.set", { key, value }) as Promise<void>,
+    delete: (key: string) => callHost("storage.delete", { key }) as Promise<void>,
+    keys: () => callHost("storage.keys") as Promise<string[]>,
+  },
+};
+
+let plugin: Record<string, (params: unknown, api: unknown) => unknown>;
 try {
   const module = await import(pathToFileURL(Deno.args[0]).href);
   plugin = module.default ?? module;
@@ -28,14 +51,21 @@ for await (const chunk of lines) {
   while ((newline = buffer.indexOf("\n")) >= 0) {
     const line = buffer.slice(0, newline);
     buffer = buffer.slice(newline + 1);
-    if (line.trim()) handle(JSON.parse(line));
+    if (!line.trim()) continue;
+    const message = JSON.parse(line);
+    if (message.apiReply !== undefined) {
+      const call = apiPending.get(message.apiReply);
+      apiPending.delete(message.apiReply);
+      if (message.error !== undefined) call?.reject(new Error(message.error));
+      else call?.resolve(message.result);
+    } else handle(message);
   }
 }
 
 async function handle(request: { id: number; method: string; params: unknown }) {
   try {
     const method = plugin[request.method];
-    const result = typeof method === "function" ? await method.call(plugin, request.params) : null;
+    const result = typeof method === "function" ? await method.call(plugin, request.params, api) : null;
     out({ id: request.id, result: result ?? null });
   } catch (error) {
     out({ id: request.id, error: (error as Error).message });

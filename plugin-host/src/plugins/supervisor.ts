@@ -1,18 +1,26 @@
 // Keeps one process per enabled plugin and fans calls out to them. Failure handling beyond
 // "one plugin failing never affects the others" (recording, auto-disable) is a later ticket.
 import type { Config } from "../config.ts";
-import { PluginProcess } from "./process.ts";
+import { type ApiCallHandler, PluginProcess } from "./process.ts";
 import type { PluginStore } from "./store.ts";
 
 export class PluginSupervisor {
   private processes = new Map<string, PluginProcess>();
 
-  constructor(private readonly store: PluginStore, private readonly config: Config) {}
+  constructor(
+    private readonly store: PluginStore,
+    private readonly config: Config,
+    private readonly onApiCall?: ApiCallHandler,
+  ) {}
 
   async startEnabled(): Promise<void> {
     for (const plugin of this.store.list()) {
       if (!plugin.enabled) continue;
-      const process = new PluginProcess(plugin, this.config);
+      const process = new PluginProcess(
+        plugin,
+        this.config,
+        this.onApiCall && ((method, params) => this.onApiCall!(plugin.id, method, params)),
+      );
       this.processes.set(plugin.id, process);
       try {
         await process.start();

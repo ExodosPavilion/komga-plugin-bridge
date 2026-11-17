@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController
  * The Plugin Manager at Komga's address: everything under [BASE] is forwarded to the Plugin Host
  * and only Komga admins get through.
  *
- * The route sits under /api/** on purpose: Komga's own security chain covers that prefix, so the
+ * The route sits under the /api prefix on purpose: Komga's own security chain covers that prefix, so the
  * admin's normal login (session cookie, Basic or API key) applies, an anonymous request gets 401,
  * and a user without the ADMIN role gets 403 from @PreAuthorize. No separate login exists.
  *

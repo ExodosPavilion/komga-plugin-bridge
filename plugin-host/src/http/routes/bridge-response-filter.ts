@@ -1,4 +1,5 @@
 import { ResponseFilters } from "../../plugins/response-filters.ts";
+import { scopesOf } from "../../plugins/library-scope.ts";
 import type { Router } from "../router.ts";
 import type { HostContext } from "../../context.ts";
 
@@ -6,7 +7,7 @@ import type { HostContext } from "../../context.ts";
 const instances = new WeakMap<HostContext, ResponseFilters>();
 const filtersFor = (ctx: HostContext) => {
   let filters = instances.get(ctx);
-  if (!filters) instances.set(ctx, filters = new ResponseFilters(ctx.plugins, ctx.supervisor));
+  if (!filters) instances.set(ctx, filters = new ResponseFilters(ctx.plugins, ctx.supervisor, scopesOf(ctx)));
   return filters;
 };
 

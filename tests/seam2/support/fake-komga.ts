@@ -7,7 +7,11 @@ export interface FakeKomga {
   stop(): Promise<void>;
 }
 
-export function startFakeKomga(apiKey = "fake-komga-api-key"): FakeKomga {
+export function startFakeKomga(
+  apiKey = "fake-komga-api-key",
+  /** What GET /api/v1/libraries answers: libraries with their importer switches. */
+  libraries: Record<string, unknown>[] = [],
+): FakeKomga {
   const requests: FakeKomga["requests"] = [];
   const server = Deno.serve({ port: 0, hostname: "127.0.0.1", onListen: () => {} }, async (req) => {
     const url = new URL(req.url);
@@ -19,7 +23,7 @@ export function startFakeKomga(apiKey = "fake-komga-api-key"): FakeKomga {
       body: text ? JSON.parse(text) : undefined,
     });
     if (req.headers.get("X-API-Key") !== apiKey) return new Response(null, { status: 401 });
-    if (url.pathname === "/api/v1/libraries") return Response.json([]);
+    if (url.pathname === "/api/v1/libraries") return Response.json(libraries);
     const series = url.pathname.match(/^\/api\/v1\/series\/([^/]+)(\/metadata)?$/);
     if (series && req.method === "GET" && !series[2]) return Response.json({ id: series[1], name: "Fake series" });
     if (series && req.method === "PATCH" && series[2]) return new Response(null, { status: 204 });

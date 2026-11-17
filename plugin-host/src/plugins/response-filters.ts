@@ -7,6 +7,7 @@
 // failure counted by the supervisor), so the response is never worse than the unfiltered one.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { librariesOfRequest, type LibraryScopes } from "./library-scope.ts";
 import type { PluginStore } from "./store.ts";
 import type { PluginSupervisor } from "./supervisor.ts";
 
@@ -28,14 +29,19 @@ export function routeMatches(pattern: string, path: string): boolean {
 export class ResponseFilters {
   private manifestRoutes = new Map<string, { key: string; routes: string[] }>();
 
-  constructor(private readonly store: PluginStore, private readonly supervisor: PluginSupervisor) {}
+  constructor(
+    private readonly store: PluginStore,
+    private readonly supervisor: PluginSupervisor,
+    private readonly scopes?: LibraryScopes,
+  ) {}
 
   /** The routes each running filter plugin asked for, by plugin id. */
   private async routesByPlugin(): Promise<Map<string, string[]>> {
     const result = new Map<string, string[]>();
     for (const id of this.supervisor.runningIds()) {
       const plugin = this.store.get(id);
-      if (!plugin?.enabled) continue;
+      // A plugin enabled for no library acts nowhere, so its routes are not announced.
+      if (!plugin?.enabled || (this.scopes && !this.scopes.enabledFor(id))) continue;
       const key = `${plugin.dir}@${plugin.version}`;
       let cached = this.manifestRoutes.get(id);
       if (cached?.key !== key) {
@@ -68,8 +74,10 @@ export class ResponseFilters {
   async apply(request: FilterRequest, body: unknown): Promise<{ changed: boolean; body?: unknown }> {
     let current = body;
     let changed = false;
+    const libraries = librariesOfRequest(request.path, request.query);
     for (const [pluginId, routes] of await this.routesByPlugin()) {
       if (!routes.some((route) => routeMatches(route, request.path))) continue;
+      if (this.scopes && !this.scopes.enabledFor(pluginId, libraries)) continue;
       const answer = await this.supervisor.callPlugin(pluginId, "filterResponse", { request, body: current });
       if (answer && answer.result !== null && answer.result !== undefined) {
         current = answer.result;

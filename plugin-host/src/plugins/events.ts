@@ -45,10 +45,13 @@ export async function dispatchEvent(
   plugins: PluginStore,
   supervisor: PluginSupervisor,
   event: KomgaEvent,
+  accepts: (pluginId: string) => boolean = () => true,
 ): Promise<string[]> {
   const subscribers = new Set<string>();
   for (const plugin of plugins.list()) {
-    if (plugin.enabled && (await subscriptionsOf(plugin)).has(event.type)) subscribers.add(plugin.id);
+    if (plugin.enabled && accepts(plugin.id) && (await subscriptionsOf(plugin)).has(event.type)) {
+      subscribers.add(plugin.id);
+    }
   }
   if (subscribers.size === 0) return [];
   const results = await supervisor.callAll("onEvent", event, (id) => subscribers.has(id));

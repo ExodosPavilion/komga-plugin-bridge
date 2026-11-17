@@ -25,7 +25,15 @@ export interface ResponseFilterContribution {
   routes: string[];
 }
 
-export type Contribution = EventsContribution | ResponseFilterContribution;
+/**
+ * Declares a plugin that supplies series or book metadata. The Plugin Manager uses it to warn
+ * when a library also has one of Komga's built-in importers switched on.
+ */
+export interface MetadataContribution {
+  type: "metadata";
+}
+
+export type Contribution = EventsContribution | ResponseFilterContribution | MetadataContribution;
 
 export interface PluginManifest {
   id: string;

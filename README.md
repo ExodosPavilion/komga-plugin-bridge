@@ -5,7 +5,7 @@ Adds plugin support to Komga. Not affiliated with the Komga project
 
 | Folder | What it is |
 | --- | --- |
-| `bridge/` | The Bridge: a single jar (Java, for now) loaded into stock Komga as a Java agent ([ADR-0003](docs/adr/0003-bridge-loads-as-a-java-agent-on-the-system-class-path.md)). One class per feature, registered in `BridgeAutoConfiguration`. |
+| `bridge/` | The Bridge: a single jar (Kotlin) loaded into stock Komga as a Java agent ([ADR-0003](docs/adr/0003-bridge-loads-as-a-java-agent-on-the-system-class-path.md)). One class per feature, registered in `BridgeAutoConfiguration`. |
 | `plugin-host/` | The Plugin Host (Deno/TypeScript) and its `Dockerfile`, which also builds the Bridge into the image. |
 | `plugins/reference/` | The reference plugin. |
 | `tests/seam1/` | Whole system in real containers, driven through Komga's address. |

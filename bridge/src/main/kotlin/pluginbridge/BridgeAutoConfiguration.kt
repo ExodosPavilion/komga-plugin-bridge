@@ -21,4 +21,10 @@ class BridgeAutoConfiguration {
     println("[plugin-bridge] series metadata provider registered with Komga")
     return PluginHostSeriesMetadataProvider(client)
   }
+
+  @Bean
+  fun pluginHostBookMetadataProvider(client: PluginHostClient): PluginHostBookMetadataProvider {
+    println("[plugin-bridge] book metadata provider registered with Komga")
+    return PluginHostBookMetadataProvider(client)
+  }
 }

@@ -2,7 +2,6 @@
 // cannot) lists a repository's releases, downloads the packaged archive attached to the chosen one
 // and hands the bytes to installFromArchive. Nothing is built from source. The installed release
 // is recorded and stays pinned: releases are looked at only when an admin asks.
-import type { Database } from "../db/database.ts";
 import { MAX_ARCHIVE_BYTES } from "./archive.ts";
 import { installFromArchive, type InstallDeps, type InstallResult } from "./install.ts";
 
@@ -21,9 +20,7 @@ export class GithubError extends Error {
   }
 }
 
-export interface GithubDeps extends InstallDeps {
-  db: Database;
-}
+export type GithubDeps = InstallDeps;
 
 const API = "https://api.github.com";
 

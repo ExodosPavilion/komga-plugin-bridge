@@ -10,6 +10,7 @@
 import { mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Config } from "../config.ts";
+import type { Database } from "../db/database.ts";
 import { ArchiveError, readArchive } from "./archive.ts";
 import type { CapabilityStore } from "./capabilities.ts";
 import { validateManifest } from "./manifest.ts";
@@ -17,6 +18,7 @@ import type { PluginStore } from "./store.ts";
 import type { PluginSupervisor } from "./supervisor.ts";
 
 export interface InstallDeps {
+  db: Database;
   config: Config;
   plugins: PluginStore;
   capabilities: CapabilityStore;
@@ -34,7 +36,7 @@ const refuse = (reason: string): InstallResult => ({ ok: false, reason });
 const exists = (path: string) => stat(path).then(() => true, () => false);
 
 export async function installFromArchive(deps: InstallDeps, bytes: Uint8Array): Promise<InstallResult> {
-  const { config, plugins, capabilities, supervisor } = deps;
+  const { db, config, plugins, capabilities, supervisor } = deps;
 
   let files;
   try {
@@ -76,6 +78,9 @@ export async function installFromArchive(deps: InstallDeps, bytes: Uint8Array): 
     await rename(staging, target);
 
     plugins.upsert({ id, version, dir: target, entry });
+    // An archive from anywhere else than a GitHub release is no longer pinned to one; installRelease
+    // records the pin again after this returns.
+    db.prepare("DELETE FROM plugin_sources WHERE plugin_id = ?").run(id);
     await capabilities.syncDeclared({ id, version, dir: target, entry, enabled: false });
     const pending = capabilities.pending(id);
     if (pending.length > 0) {

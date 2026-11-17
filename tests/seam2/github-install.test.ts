@@ -167,3 +167,22 @@ Deno.test("the GitHub routes need the shared secret", () =>
     assert.equal(await bridge.status(`/api/github/releases?repo=${encodeURIComponent(REPO)}`, null), 401);
     assert.equal(await bridge.status("/api/plugins/updates", null), 401);
   }));
+
+Deno.test("uploading an archive over a GitHub-installed plugin drops its pinned source", async () =>
+  await withEnv({
+    [SLUG]: [await release("1.0.0", "2026-01-01T00:00:00Z"), await release("1.1.0", "2026-02-01T00:00:00Z")],
+  }, async (bridge) => {
+    await post(bridge, "/api/plugins/install-github", { repo: REPO, tag: "v1.0.0" });
+    assert.equal((await updates(bridge)).body.length, 1);
+
+    const uploaded = await bridge.request("/api/plugins/install", { method: "POST", body: await archive("9.0.0") as BodyInit });
+    assert.equal(uploaded.status, 200);
+    await uploaded.body?.cancel();
+    assert.equal(await summary(bridge), "v9.0.0");
+    // Not on GitHub's list any more: no update check, so no "update" can silently replace the upload.
+    assert.deepEqual((await updates(bridge)).body, []);
+
+    // Installing a release again pins it again.
+    await post(bridge, "/api/plugins/install-github", { repo: REPO, tag: "v1.1.0" });
+    assert.deepEqual((await updates(bridge)).body.map((r: { installed: string }) => r.installed), ["v1.1.0"]);
+  }));

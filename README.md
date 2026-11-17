@@ -52,3 +52,7 @@ Every plugin call has a time limit (`PLUGIN_HOST_CALL_TIMEOUT_MS`, default 8000)
 ## Plugin API (what a hook receives)
 
 Every hook is called as `hook(params, api)`, with `api.settings` (`all()`, `get(name)`), `api.storage` (`get`, `set`, `delete`, `keys`) and `api.komga` (see above). On the wire, the plugin sends `{call, method: "settings.all" | "storage.get" | "komga.getSeries" | ..., args: [...]}` on stdout and the host answers `{replyTo, result | error}` on stdin. The host routes `komga.*` to the Komga data layer (checked against approved capabilities) and the rest to settings and storage. Failures are counted at the hook call, so an API error a plugin lets propagate counts once.
+
+## Shared secret
+
+The Plugin Host generates a secret at first start (kept in its own `/state`, reused later) and writes it to `bridge.json` beside the Bridge jar. Every Plugin Host route except `public` ones needs `Authorization: Bearer <secret>`. The other way, the Bridge answers calls under `/plugin-bridge/host/` (outside Komga's own security) only with the same header (`HostCallFilter`); `GET /plugin-bridge/host/ping` is the liveness check. Later features add handlers behind that filter. No admin configuration is needed.

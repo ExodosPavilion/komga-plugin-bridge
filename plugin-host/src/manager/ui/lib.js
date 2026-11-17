@@ -7,9 +7,20 @@ export function h(tag, attrs = {}, ...children) {
     if (name.startsWith("on")) el.addEventListener(name.slice(2), value);
     else if (value !== false && value != null) el.setAttribute(name, value === true ? "" : value);
   }
-  for (const child of children.flat()) {
-    if (child != null && child !== false) el.append(child instanceof Node ? child : String(child));
-  }
+  return fill(el, ...children);
+}
+
+/**
+ * Replaces el's children, as replaceChildren() does, but with h()'s rules: arrays are flattened
+ * and null or false are skipped. Plain replaceChildren() would render them as "null" or
+ * "[object HTMLElement]". Sections always fill elements through this.
+ */
+export function fill(el, ...children) {
+  el.replaceChildren(
+    ...children.flat(Infinity)
+      .filter((child) => child != null && child !== false)
+      .map((child) => child instanceof Node ? child : String(child)),
+  );
   return el;
 }
 

@@ -39,6 +39,11 @@
         return c && c.indexOf("--active") < 0 && c.indexOf("router-link") < 0;
       })
       .join(" ");
+    // Drop what the anchor item shows about itself, such as the newer UI's "update available" badge.
+    var extras = link.querySelectorAll(".v-list-item__append, .v-badge, .v-chip");
+    for (var j = 0; j < extras.length; j++) {
+      if (extras[j].parentNode) extras[j].parentNode.removeChild(extras[j]);
+    }
     var title = link.querySelector(".v-list-item-title, .v-list-item__title");
     if (title) {
       title.textContent = "Plugin Manager";

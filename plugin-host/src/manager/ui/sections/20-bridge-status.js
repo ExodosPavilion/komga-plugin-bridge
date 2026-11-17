@@ -1,12 +1,12 @@
 // Whether the Bridge is active, and if not, why.
-import { api, h } from "../lib.js";
+import { api, fill, h } from "../lib.js";
 
 export default {
   title: "Bridge",
   async render(element) {
     const { current: s } = await api("api/bridge-status");
     const version = s?.komgaVersion ? ` (Komga ${s.komgaVersion})` : "";
-    element.replaceChildren(
+    fill(element, 
       !s
         ? h("p", { class: "muted" }, "The Bridge has not reported to the Plugin Host since it started.")
         : s.active

@@ -68,9 +68,10 @@ object BridgeGate {
   fun parse(text: String): List<String> =
     text
       .lineSequence()
+      .filterNot { it.trimStart().startsWith("#") } // drop comment lines before splitting: comments may contain commas
       .flatMap { it.split(',').asSequence() }
       .map { it.trim() }
-      .filter { it.isNotEmpty() && !it.startsWith("#") }
+      .filter { it.isNotEmpty() }
       .toList()
 }
 

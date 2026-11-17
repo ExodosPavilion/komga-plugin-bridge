@@ -1,6 +1,6 @@
 // Where each plugin acts (per-library enablement) and the warning when a metadata plugin and one
 // of Komga's built-in importers are both on for the same library.
-import { api, h } from "../lib.js";
+import { api, fill, h } from "../lib.js";
 
 async function save(element, plugin, body) {
   try {
@@ -43,7 +43,7 @@ export async function render(element) {
         `"${c.libraryName}". Which one wins is not controlled: switch one off, in Komga's library settings for the importers.`,
     )
   );
-  element.replaceChildren(
+  fill(element, 
     state.komgaLibraries === null
       ? h("p", { class: "muted" }, `Komga's libraries are not available: ${state.unavailable}`)
       : state.plugins.length === 0

@@ -1,6 +1,6 @@
 // Install a plugin by uploading its archive, and approve the capabilities a plugin declares
 // before it can be enabled (plugins installed by dropping a folder wait here too).
-import { api, h } from "../lib.js";
+import { api, fill, h } from "../lib.js";
 
 const MEANING = {
   "network": "Reach the network (any address).",
@@ -86,7 +86,7 @@ export async function render(element) {
 
   const capabilities = await api("api/plugin-capabilities");
   const needApproval = capabilities.filter((p) => p.pending.length > 0);
-  element.replaceChildren(
+  fill(element, 
     h("h3", {}, "Install from a file"),
     h("p", { class: "muted" }, "Upload a plugin archive (.zip). A plugin that declares capabilities waits for your approval before it can run."),
     h("div", {}, input, button),

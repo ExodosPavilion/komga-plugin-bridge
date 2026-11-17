@@ -1,21 +1,21 @@
 // Install a plugin from a GitHub release, and check for updates on demand. The version you choose
 // is pinned: nothing is looked up unless you press a button. An update that asks for new
 // capabilities lands in "Install a plugin > Waiting for approval", disabled until you approve it.
-import { api, h } from "../lib.js";
+import { api, fill, h } from "../lib.js";
 
 const result = (message, isError) => h("p", { class: isError ? "error" : "muted" }, message);
 
 async function install(repo, tag, status) {
-  status.replaceChildren(result(`Installing ${tag}...`));
+  fill(status, result(`Installing ${tag}...`));
   try {
     const installed = await api("api/plugins/install-github", { method: "POST", body: { repo, tag } });
-    status.replaceChildren(result(
+    fill(status, result(
       `Installed ${installed.id} ${installed.version}.` +
         (installed.pending.length > 0 ? ` It is disabled until you approve: ${installed.pending.join(", ")}.` : ""),
     ));
     setTimeout(() => location.reload(), 2000);
   } catch (error) {
-    status.replaceChildren(result(error.message, true));
+    fill(status, result(error.message, true));
   }
 }
 
@@ -49,13 +49,13 @@ export async function render(element) {
   const input = h("input", { type: "text", size: 48, placeholder: "https://github.com/owner/plugin-repository" });
   const list = h("button", {
     onclick: async () => {
-      releases.replaceChildren();
-      status.replaceChildren();
+      fill(releases);
+      fill(status);
       try {
         const found = await api(`api/github/releases?repo=${encodeURIComponent(input.value)}`);
-        releases.replaceChildren(releaseList(input.value, found, status));
+        fill(releases, releaseList(input.value, found, status));
       } catch (error) {
-        status.replaceChildren(result(error.message, true));
+        fill(status, result(error.message, true));
       }
     },
   }, "Show releases");
@@ -64,10 +64,10 @@ export async function render(element) {
   const check = h("button", {
     onclick: async () => {
       check.disabled = true;
-      updates.replaceChildren(result("Checking...", false));
+      fill(updates, result("Checking...", false));
       try {
         const reports = await api("api/plugins/updates");
-        updates.replaceChildren(
+        fill(updates, 
           reports.length === 0 ? h("p", { class: "muted" }, "No plugin was installed from GitHub.") : reports.map((report) =>
             h(
               "div",
@@ -89,15 +89,14 @@ export async function render(element) {
           ),
         );
       } catch (error) {
-        updates.replaceChildren(result(error.message, true));
+        fill(updates, result(error.message, true));
       } finally {
         check.disabled = false;
       }
     },
   }, "Check for updates");
 
-  element.replaceChildren(
-    h("h3", {}, "Install from GitHub"),
+  fill(element, 
     h("p", { class: "muted" }, "Paste a repository address, pick a release, and the packaged plugin attached to it is installed, pinned to that version."),
     h("div", {}, input, list),
     releases,

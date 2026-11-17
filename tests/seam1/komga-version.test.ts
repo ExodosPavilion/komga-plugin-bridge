@@ -25,6 +25,9 @@ Deno.test("the Bridge loads into the Komga version under test and is active on i
     120,
   );
   assert.equal(report.reason, null);
+  // The supported list as the Bridge parsed it holds only version numbers: no comment text.
+  assert.ok(report.supportedVersions.length > 0);
+  for (const version of report.supportedVersions) assert.match(version, /^\d+(\.\d+)*$/);
 
   // The Bridge's own route is in Komga's web stack: answers 401 without the secret, ok with it.
   const bare = await fetch(`${KOMGA_URL}/plugin-bridge/host/ping`);

@@ -1,5 +1,5 @@
 // The installed plugins: version, status, enabled state, enable / disable / remove, recent errors.
-import { api, h } from "../lib.js";
+import { api, fill, h } from "../lib.js";
 
 function status(plugin) {
   if (plugin.autoDisabled) return "disabled automatically after repeated failures";
@@ -19,7 +19,7 @@ async function act(element, plugin, action, question) {
 
 async function showErrors(cell, plugin) {
   const failures = await api(`api/failures?plugin=${encodeURIComponent(plugin.id)}`);
-  cell.replaceChildren(
+  fill(cell, 
     failures.length === 0
       ? h("span", { class: "muted" }, "No errors recorded.")
       : failures.slice(0, 20).map((f) => h("pre", {}, `${f.at}  ${f.kind}: ${f.reason}`)),
@@ -58,7 +58,7 @@ function row(element, plugin) {
 
 export async function render(element) {
   const [plugins, refused] = await Promise.all([api("api/plugins"), api("api/plugins/refused")]);
-  element.replaceChildren(
+  fill(element, 
     plugins.length === 0 ? h("p", { class: "muted" }, "No plugins are installed.") : h(
       "table",
       {},

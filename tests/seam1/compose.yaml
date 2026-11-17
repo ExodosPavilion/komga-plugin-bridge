@@ -78,8 +78,10 @@ services:
     environment:
       KOMGA_URL: http://komga:25600
       HOST_PROXY_URL: http://host-proxy:8081
+      BRIDGE_CONFIG: /plugin-bridge/bridge.json
     volumes:
       - library:/data
+      - bridge:/plugin-bridge:ro # to read the shared secret, standing in for the Plugin Host
 
 volumes:
   bridge:

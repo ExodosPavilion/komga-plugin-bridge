@@ -21,6 +21,7 @@ export class PluginProcess {
   private pending = new Map<number, { resolve(v: unknown): void; reject(e: Error): void }>();
   private nextId = 1;
   private alive = false;
+  private reading?: Promise<void>;
 
   /** `onHostCall` answers the plugin's calls into the host (the Plugin API), e.g. "komga.getSeries". */
   constructor(
@@ -61,7 +62,7 @@ export class PluginProcess {
     this.alive = true;
 
     const ready = Promise.withResolvers<void>();
-    this.readLines(child, ready);
+    this.reading = this.readLines(child, ready).catch(() => {});
     child.status.then(() => {
       this.alive = false;
       for (const call of this.pending.values()) call.reject(new PluginCallError("crash", "plugin process exited"));
@@ -97,6 +98,7 @@ export class PluginProcess {
     }
     await this.writer?.close().catch(() => {});
     await this.child.status;
+    await this.reading;
   }
 
   private async answerHostCall(message: { call: number; method: string; args: unknown[] }) {

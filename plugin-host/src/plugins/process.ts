@@ -14,6 +14,10 @@ import type { InstalledPlugin } from "./store.ts";
 // (the test runner), which Deno can run all the same.
 const runnerUrl = import.meta.resolve("../runner/runner.ts");
 const runnerDir = runnerUrl.startsWith("file:") ? dirname(fileURLToPath(runnerUrl)) : null;
+// A runner loaded from a registry is fetched by the plugin's process, which may import modules
+// only from Deno's default hosts (jsr.io among them). Allow exactly the runner's own host, so a
+// mirror or another registry works too. This is module loading, not network access for the plugin.
+const runnerImportHost = runnerDir ? null : new URL(runnerUrl).host;
 
 /** Only what Deno needs to find its own module cache; never anything the host holds secret. */
 const DENO_ENV = ["DENO_DIR", "HOME", "XDG_CACHE_HOME", "LOCALAPPDATA"];
@@ -60,6 +64,7 @@ export class PluginProcess {
         "run",
         "--no-prompt",
         `--allow-read=${readable}`,
+        ...(runnerImportHost ? [`--allow-import=${runnerImportHost}`] : []),
         ...(network ? ["--allow-net"] : []),
         runnerUrl,
         join(this.plugin.dir, this.plugin.entry),

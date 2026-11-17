@@ -9,9 +9,19 @@ import { type PluginHost, startPluginHost } from "../../../plugin-host/src/host.
 import type { Config } from "../../../plugin-host/src/config.ts";
 import { type FakeKomga, startFakeKomga } from "./fake-komga.ts";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const fixturePlugins = join(repoRoot, "tests", "seam2", "fixtures", "plugins");
-const realPlugins = join(repoRoot, "plugins");
+// A plugin named in `plugins` comes from this repository: a seam 2 fixture, or "reference". The
+// path is worked out only when one is asked for, because this file is also shipped inside the
+// test runner package, where import.meta.url is a registry address and there is no repository.
+// The runner passes plugin folders with `pluginDirs` instead.
+function repoPlugin(name: string): string {
+  if (!import.meta.url.startsWith("file:")) {
+    throw new Error(`plugin "${name}" names a fixture of this repository; pass the plugin's folder in pluginDirs`);
+  }
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+  return name === "reference"
+    ? join(repoRoot, "plugins", "reference")
+    : join(repoRoot, "tests", "seam2", "fixtures", "plugins", name);
+}
 
 export interface BridgeConfigFile {
   pluginHostUrl: string;
@@ -79,10 +89,7 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
   const bridgeJar = join(root, "bridge.jar");
   await writeFile(bridgeJar, "not really a jar, but the host only copies it");
 
-  const sources: [string, string][] = (options.plugins ?? []).map((name) => [
-    name,
-    name === "reference" ? join(realPlugins, "reference") : join(fixturePlugins, name),
-  ]);
+  const sources: [string, string][] = (options.plugins ?? []).map((name) => [name, repoPlugin(name)]);
   for (const dir of options.pluginDirs ?? []) {
     let id = basename(dir);
     try {

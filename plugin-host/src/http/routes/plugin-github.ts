@@ -1,3 +1,4 @@
+import { jsonBody } from "../body.ts";
 import { checkUpdates, GithubError, installRelease, listReleases } from "../../plugins/github.ts";
 import type { Router } from "../router.ts";
 
@@ -26,7 +27,7 @@ export function register(router: Router) {
 
   router.post("/api/plugins/install-github", (req, ctx) =>
     guard(async () => {
-      const body = await req.json().catch(() => null);
+      const body = await jsonBody(req);
       if (typeof body?.repo !== "string" || typeof body?.tag !== "string") {
         return Response.json({ error: "Send the repository address and the release tag." }, { status: 400 });
       }

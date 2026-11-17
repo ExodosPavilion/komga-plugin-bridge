@@ -2,19 +2,10 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { makeSeries, startTestHost } from "./support/host.ts";
 import { book, FakeBridge } from "./support/fake-bridge.ts";
+import { withHost as withStartedHost } from "./support/with-host.ts";
 
-async function withHost(
-  plugins: string[],
-  body: (host: Awaited<ReturnType<typeof startTestHost>>, bridge: FakeBridge) => Promise<void>,
-  callTimeoutMs = 3000,
-) {
-  const host = await startTestHost({ plugins, callTimeoutMs });
-  try {
-    await body(host, new FakeBridge(await host.bridgeConfig(), host.url));
-  } finally {
-    await host.dispose();
-  }
-}
+const withHost = (plugins: string[], body: Parameters<typeof withStartedHost>[1], callTimeoutMs = 3000) =>
+  withStartedHost({ plugins, callTimeoutMs }, body);
 
 Deno.test("the reference plugin supplies the metadata file beside a book", () =>
   withHost(["reference"], async (host, bridge) => {

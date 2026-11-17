@@ -1,3 +1,4 @@
+import { jsonBody } from "../body.ts";
 import { BridgeStatus } from "../../bridge/status.ts";
 import type { Router } from "../router.ts";
 
@@ -8,7 +9,7 @@ import type { Router } from "../router.ts";
  */
 export function register(router: Router) {
   router.post("/bridge/status", async (req, ctx) => {
-    const b = await req.json().catch(() => null);
+    const b = await jsonBody(req);
     const strings = (v: unknown) => Array.isArray(v) && v.every((s) => typeof s === "string");
     const optional = (v: unknown) => v === undefined || v === null || typeof v === "string";
     if (

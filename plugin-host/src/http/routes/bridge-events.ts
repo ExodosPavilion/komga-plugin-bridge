@@ -1,3 +1,4 @@
+import { jsonBody } from "../body.ts";
 import { dispatchEvent } from "../../plugins/events.ts";
 import { libraryOfEvent } from "../../plugins/library-scope.ts";
 import type { Router } from "../router.ts";
@@ -8,7 +9,7 @@ import type { Router } from "../router.ts";
  */
 export function register(router: Router) {
   router.post("/bridge/events", async (req, ctx) => {
-    const body = await req.json().catch(() => null);
+    const body = await jsonBody(req);
     if (typeof body?.type !== "string" || !/^[A-Za-z]+$/.test(body.type)) return new Response(null, { status: 400 });
     const data = typeof body.data === "object" && body.data !== null ? body.data : {};
     // An event about a library reaches only plugins enabled for it; other events (users, read

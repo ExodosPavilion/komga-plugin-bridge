@@ -3,21 +3,17 @@ import { join } from "node:path";
 import { rm, writeFile } from "node:fs/promises";
 import { makeSeries, startTestHost, type TestHost } from "./support/host.ts";
 import { FakeBridge, series } from "./support/fake-bridge.ts";
+import { withHost as withStartedHost } from "./support/with-host.ts";
 
-async function withHost(
-  options: Parameters<typeof startTestHost>[0],
+const withHost = (
+  options: Parameters<typeof withStartedHost>[0],
   // deno-lint-ignore no-explicit-any
   body: (host: TestHost, bridge: FakeBridge, ask: () => Promise<any>) => Promise<void>,
-) {
-  const host = await startTestHost(options);
-  try {
-    const bridge = new FakeBridge(await host.bridgeConfig(), host.url);
+) =>
+  withStartedHost({ callTimeoutMs: 5000, ...options }, async (host, bridge) => {
     const dir = await makeSeries(host.dirs.library, "Some Series");
     await body(host, bridge, async () => (await bridge.seriesMetadata(series(dir))).body);
-  } finally {
-    await host.dispose();
-  }
-}
+  });
 
 Deno.test("each failure is recorded with plugin, time, kind and reason", () =>
   withHost({ plugins: ["crasher", "hanger"], callTimeoutMs: 300, failureThreshold: 10 }, async (_h, bridge, ask) => {

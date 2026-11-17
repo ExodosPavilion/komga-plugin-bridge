@@ -1,20 +1,14 @@
 import assert from "node:assert/strict";
 import { startTestHost } from "./support/host.ts";
 import { FakeBridge } from "./support/fake-bridge.ts";
+import { withHost as withStartedHost } from "./support/with-host.ts";
 
-async function withHost(
+const withHost = (
   plugins: string[],
   body: (bridge: FakeBridge) => Promise<void>,
   callTimeoutMs = 3000,
   failureThreshold = 3,
-) {
-  const host = await startTestHost({ plugins, callTimeoutMs, failureThreshold });
-  try {
-    await body(new FakeBridge(await host.bridgeConfig(), host.url));
-  } finally {
-    await host.dispose();
-  }
-}
+) => withStartedHost({ plugins, callTimeoutMs, failureThreshold }, (_host, bridge) => body(bridge));
 
 const routes = async (bridge: FakeBridge) => (await (await bridge.request("/bridge/response-filters")).json()).routes;
 

@@ -1,3 +1,4 @@
+import { jsonBody } from "../body.ts";
 import { CapabilitiesNotApprovedError } from "../../plugins/supervisor.ts";
 import type { Router } from "../router.ts";
 
@@ -12,7 +13,7 @@ export function register(router: Router) {
 
   // POST /api/plugins/enable {"id": "..."}: re-enables a plugin and clears its failure count.
   router.post("/api/plugins/enable", async (req, ctx) => {
-    const body = await req.json().catch(() => null);
+    const body = await jsonBody(req);
     if (typeof body?.id !== "string") return new Response(null, { status: 400 });
     try {
       return new Response(null, { status: (await ctx.supervisor.enable(body.id)) ? 200 : 404 });

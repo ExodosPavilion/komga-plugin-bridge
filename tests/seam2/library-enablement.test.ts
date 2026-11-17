@@ -3,18 +3,8 @@ import { join } from "node:path";
 import { makeSeries, startTestHost, type TestHost } from "./support/host.ts";
 import { FakeBridge, series } from "./support/fake-bridge.ts";
 import { startFakeKomga } from "./support/fake-komga.ts";
+import { withHost } from "./support/with-host.ts";
 
-async function withHost(
-  options: Parameters<typeof startTestHost>[0],
-  body: (host: TestHost, bridge: FakeBridge) => Promise<void>,
-) {
-  const host = await startTestHost({ callTimeoutMs: 3000, ...options });
-  try {
-    await body(host, new FakeBridge(await host.bridgeConfig(), host.url));
-  } finally {
-    await host.dispose();
-  }
-}
 
 const choose = async (bridge: FakeBridge, body: unknown) => {
   const response = await bridge.request("/api/plugin-libraries", {

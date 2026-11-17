@@ -1,4 +1,5 @@
 // Book metadata as plugins supply it, and how several plugins' answers combine.
+import { mergeFirstWins } from "./merge.ts";
 export interface BookAuthor {
   name: string;
   role: string;
@@ -48,14 +49,5 @@ export function sanitizeBookMetadata(value: unknown): BookMetadata | null {
 
 /** Plugins are given in a stable order; for each field the first plugin to supply it wins. */
 export function mergeBookMetadata(results: unknown[]): BookMetadata | null {
-  const merged: BookMetadata = {};
-  for (const result of results) {
-    const metadata = sanitizeBookMetadata(result);
-    if (metadata) {
-      for (const [key, value] of Object.entries(metadata)) {
-        if (!(key in merged)) (merged as Record<string, unknown>)[key] = value;
-      }
-    }
-  }
-  return Object.keys(merged).length > 0 ? merged : null;
+  return mergeFirstWins(results, sanitizeBookMetadata);
 }

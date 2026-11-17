@@ -1,3 +1,4 @@
+import { jsonBody } from "../body.ts";
 import { MAX_ARCHIVE_BYTES } from "../../plugins/archive.ts";
 import { installFromArchive } from "../../plugins/install.ts";
 import type { Router } from "../router.ts";
@@ -28,7 +29,7 @@ export function register(router: Router) {
   });
 
   router.post("/api/plugins/approve", async (req, ctx) => {
-    const body = await req.json().catch(() => null);
+    const body = await jsonBody(req);
     if (typeof body?.id !== "string") return new Response(null, { status: 400 });
     if (!ctx.plugins.get(body.id)) return new Response(null, { status: 404 });
     ctx.capabilities.approve(body.id);

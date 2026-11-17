@@ -1,3 +1,4 @@
+import { jsonBody } from "../body.ts";
 import { ResponseFilters } from "../../plugins/response-filters.ts";
 
 import type { Router } from "../router.ts";
@@ -22,7 +23,7 @@ export function register(router: Router) {
   router.get("/bridge/response-filters", async (_req, ctx) => Response.json({ routes: await filtersFor(ctx).routes() }));
 
   router.post("/bridge/response-filter", async (req, ctx) => {
-    const input = await req.json().catch(() => null);
+    const input = await jsonBody(req);
     const request = input?.request;
     if (typeof request?.path !== "string" || !input || !("body" in input)) return new Response(null, { status: 400 });
     return Response.json(await filtersFor(ctx).apply({

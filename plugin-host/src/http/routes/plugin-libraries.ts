@@ -1,3 +1,4 @@
+import { jsonBody } from "../body.ts";
 import { fetchLibraries, findClashes } from "../../plugins/library-clashes.ts";
 
 import type { Router } from "../router.ts";
@@ -21,7 +22,7 @@ export function register(router: Router) {
   });
 
   router.post("/api/plugin-libraries", async (req, ctx) => {
-    const body = await req.json().catch(() => null);
+    const body = await jsonBody(req);
     if (typeof body?.plugin !== "string") return new Response(null, { status: 400 });
     if (!ctx.plugins.get(body.plugin)) return new Response(null, { status: 404 });
     if (body.all === true) {

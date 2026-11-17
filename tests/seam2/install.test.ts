@@ -4,6 +4,7 @@ import { stat } from "node:fs/promises";
 import { zip, type ZipEntry } from "../../template/scripts/zip.ts";
 import { startTestHost, type TestHost } from "./support/host.ts";
 import { FakeBridge, series } from "./support/fake-bridge.ts";
+import { withHost as withStartedHost } from "./support/with-host.ts";
 
 // Install by upload (and by folder), and the capability approval that gates enabling. The
 // requests are the ones the Bridge forwards from the Plugin Manager.
@@ -29,17 +30,10 @@ const archive = (
     ...extra,
   ]);
 
-async function withHost(
-  options: Parameters<typeof startTestHost>[0],
-  body: (host: TestHost, bridge: FakeBridge) => Promise<void>,
-) {
-  const host = await startTestHost({ approve: false, ...options });
-  try {
-    await body(host, new FakeBridge(await host.bridgeConfig(), host.url));
-  } finally {
-    await host.dispose();
-  }
-}
+const withHost = (
+  options: Parameters<typeof withStartedHost>[0],
+  body: Parameters<typeof withStartedHost>[1],
+) => withStartedHost({ approve: false, ...options }, body);
 
 const upload = async (bridge: FakeBridge, bytes: Uint8Array, secret?: string | null) => {
   const response = await bridge.request("/api/plugins/install", {

@@ -1,19 +1,10 @@
 import assert from "node:assert/strict";
 import { startTestHost } from "./support/host.ts";
 import { FakeBridge, series } from "./support/fake-bridge.ts";
+import { withHost as withStartedHost } from "./support/with-host.ts";
 
-async function withHost(
-  plugins: string[],
-  body: (bridge: FakeBridge) => Promise<void>,
-  failureThreshold = 3,
-) {
-  const host = await startTestHost({ plugins, callTimeoutMs: 3000, failureThreshold });
-  try {
-    await body(new FakeBridge(await host.bridgeConfig(), host.url));
-  } finally {
-    await host.dispose();
-  }
-}
+const withHost = (plugins: string[], body: (bridge: FakeBridge) => Promise<void>, failureThreshold = 3) =>
+  withStartedHost({ plugins, failureThreshold }, (_host, bridge) => body(bridge));
 
 /** What the recorder plugin has received, read back through its metadata hook. */
 const received = async (bridge: FakeBridge) =>

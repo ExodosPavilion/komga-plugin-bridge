@@ -3,21 +3,11 @@ import { join } from "node:path";
 import { stat } from "node:fs/promises";
 import { startTestHost, type TestHost } from "./support/host.ts";
 import { FakeBridge, series } from "./support/fake-bridge.ts";
+import { withHost } from "./support/with-host.ts";
 
 // The Plugin Manager as the Bridge forwards it: the Bridge adds the shared secret and passes the
 // admin's request through, so these tests make the same requests with the secret.
 
-async function withHost(
-  options: Parameters<typeof startTestHost>[0],
-  body: (host: TestHost, bridge: FakeBridge) => Promise<void>,
-) {
-  const host = await startTestHost(options);
-  try {
-    await body(host, new FakeBridge(await host.bridgeConfig(), host.url));
-  } finally {
-    await host.dispose();
-  }
-}
 
 const post = async (bridge: FakeBridge, path: string, body: unknown) => {
   const response = await bridge.request(path, {

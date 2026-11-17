@@ -1,3 +1,4 @@
+import { jsonBody } from "../body.ts";
 import { UnknownPluginError } from "../../plugins/settings.ts";
 import type { Router } from "../router.ts";
 
@@ -17,7 +18,7 @@ export function register(router: Router) {
   });
 
   router.post("/api/plugin-settings", async (req, ctx) => {
-    const body = await req.json().catch(() => null);
+    const body = await jsonBody(req);
     if (typeof body?.plugin !== "string" || typeof body.values !== "object" || body.values === null) {
       return Response.json({ errors: ['Expected {"plugin": "<id>", "values": {...}}.'] }, { status: 400 });
     }

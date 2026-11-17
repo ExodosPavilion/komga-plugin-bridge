@@ -3,17 +3,12 @@ import { startTestHost, type TestHost } from "./support/host.ts";
 import { FakeBridge } from "./support/fake-bridge.ts";
 // @ts-ignore plain JavaScript: the form's logic as the Plugin Manager page runs it
 import { buildValues, errorMessages, secretHint } from "../../plugin-host/src/manager/ui/settings-form.js";
+import { withHost as withStartedHost } from "./support/with-host.ts";
 
 // The settings form of the Plugin Manager: its logic, driven by what the host really sends.
 
-async function withHost(body: (bridge: FakeBridge) => Promise<void>) {
-  const host: TestHost = await startTestHost({ plugins: ["settings-user"] });
-  try {
-    await body(new FakeBridge(await host.bridgeConfig(), host.url));
-  } finally {
-    await host.dispose();
-  }
-}
+const withHost = (body: (bridge: FakeBridge) => Promise<void>) =>
+  withStartedHost({ plugins: ["settings-user"] }, (_host, bridge) => body(bridge));
 
 const fieldsOf = async (bridge: FakeBridge) => (await bridge.pluginSettings("settings-user")).body.fields;
 

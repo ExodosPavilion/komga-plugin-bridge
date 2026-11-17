@@ -1,4 +1,5 @@
 // Series metadata as plugins supply it, and how several plugins' answers combine.
+import { mergeFirstWins } from "./merge.ts";
 export interface SeriesMetadata {
   title?: string;
   summary?: string;
@@ -25,14 +26,5 @@ export function sanitizeSeriesMetadata(value: unknown): SeriesMetadata | null {
 
 /** Plugins are given in a stable order; for each field the first plugin to supply it wins. */
 export function mergeSeriesMetadata(results: unknown[]): SeriesMetadata | null {
-  const merged: SeriesMetadata = {};
-  for (const result of results) {
-    const metadata = sanitizeSeriesMetadata(result);
-    if (metadata) {
-      for (const [key, value] of Object.entries(metadata)) {
-        if (!(key in merged)) (merged as Record<string, unknown>)[key] = value;
-      }
-    }
-  }
-  return Object.keys(merged).length > 0 ? merged : null;
+  return mergeFirstWins(results, sanitizeSeriesMetadata);
 }

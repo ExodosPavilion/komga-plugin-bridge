@@ -4,6 +4,8 @@ export interface FakeKomga {
   url: string;
   apiKey: string;
   requests: { method: string; path: string; apiKey: string | null; body?: unknown }[];
+  /** The libraries GET /api/v1/libraries answers; tests may change it while the host runs. */
+  libraries: Record<string, unknown>[];
   stop(): Promise<void>;
 }
 
@@ -33,6 +35,7 @@ export function startFakeKomga(
     url: `http://127.0.0.1:${server.addr.port}`,
     apiKey,
     requests,
+    libraries,
     stop: () => server.shutdown(),
   };
 }

@@ -16,6 +16,7 @@ export function register(router: Router) {
     // progress, ...) are not about one library and reach every subscriber enabled somewhere.
     const scopes = ctx.scopes;
     const library = libraryOfEvent(data);
+    if (library) await ctx.supervisor.noteLibraries([library]);
     const delivered = await dispatchEvent(
       ctx.plugins,
       ctx.supervisor,

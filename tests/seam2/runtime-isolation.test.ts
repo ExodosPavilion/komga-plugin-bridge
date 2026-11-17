@@ -189,3 +189,25 @@ Deno.test("a plugin cannot learn KOMGA_API_KEY or any host environment variable,
     Deno.env.delete("KOMGA_API_KEY");
   }
 });
+
+Deno.test("a library added to Komga after the plugin started opens its files once a call is about it", async () => {
+  const host = await startTestHost({
+    plugins: ["prober"],
+    capabilities: { prober: ["file-read:*"] },
+    libraryFiles,
+    libraries: true,
+  });
+  try {
+    const bridge = new FakeBridge(await host.bridgeConfig(), host.url);
+    // Komga knows no library yet: the plugin is restarted with nothing readable.
+    host.komga!.libraries.length = 0;
+    await choose(host, { plugin: "prober", all: true });
+    assert.match(await read(bridge, inB(host)), /read:denied/);
+    // The admin adds a library; the next call about it finds the plugin enabled there.
+    host.komga!.libraries.push({ id: "LIB-NEW", name: "New", root: host.dirs.library2 });
+    const metadata = await bridge.seriesMetadata({ ...series(inB(host)), libraryId: "LIB-NEW" });
+    assert.match(metadata.body.metadata.summary, /read:allowed/);
+  } finally {
+    await host.dispose();
+  }
+});

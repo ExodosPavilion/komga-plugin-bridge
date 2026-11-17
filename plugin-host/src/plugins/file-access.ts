@@ -18,6 +18,8 @@ export interface EnabledRoots {
   roots: string[];
   /** False when Komga's library list could not be read, so `roots` may be missing some. */
   complete: boolean;
+  /** Ids of every library Komga listed (so a caller can tell a library it has not seen yet). */
+  known: string[];
 }
 
 const inside = (root: string, parent: string) => {
@@ -32,7 +34,7 @@ export async function enabledLibraryRoots(
   pluginId: string,
 ): Promise<EnabledRoots> {
   const found = await fetchLibraries(config);
-  if ("unavailable" in found) return { roots: [], complete: false };
+  if ("unavailable" in found) return { roots: [], complete: false, known: [] };
   const roots: string[] = [];
   for (const library of found.libraries) {
     if (typeof library.root !== "string" || library.root === "") continue;
@@ -40,5 +42,5 @@ export async function enabledLibraryRoots(
     if (!config.libraryRoots.some((mounted) => inside(String(library.root), mounted))) continue;
     roots.push(resolve(String(library.root)));
   }
-  return { roots, complete: true };
+  return { roots, complete: true, known: found.libraries.map((l) => l.id) };
 }

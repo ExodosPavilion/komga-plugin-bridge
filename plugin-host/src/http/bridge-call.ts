@@ -12,6 +12,7 @@ export function metadataCall(key: "series" | "book", hook: string, merge: (resul
     const subject = (await jsonBody(req))?.[key];
     if (typeof subject?.path !== "string") return new Response(null, { status: 400 });
     const libraries = typeof subject.libraryId === "string" ? [subject.libraryId] : [];
+    await ctx.supervisor.noteLibraries(libraries);
     const results = await ctx.supervisor.callAll(hook, { [key]: subject }, (id) => ctx.scopes.permitsCallAbout(id, libraries));
     return Response.json({ metadata: merge(results.map((r) => r.result)) });
   };

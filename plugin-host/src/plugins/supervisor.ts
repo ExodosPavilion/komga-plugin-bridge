@@ -23,6 +23,10 @@ export class PluginSupervisor {
   /** Plugins started while Komga's library list could not be read, so their file access may be short. */
   private incomplete = new Set<string>();
   private lastRetry = new Map<string, number>();
+  /** Libraries Komga listed at the last look, and when: a call about another one means a new library. */
+  private knownLibraries = new Set<string>();
+  /** When a call about a not-yet-listed library last caused a look, by library id. */
+  private missedAt = new Map<string, number>();
 
   constructor(
     private readonly store: PluginStore,
@@ -61,10 +65,29 @@ export class PluginSupervisor {
     if (approved.some((c) => c.startsWith("file-read:"))) {
       const found = await enabledLibraryRoots(this.config, this.scopes, id);
       roots = found.roots;
-      if (found.complete) this.incomplete.delete(id);
-      else this.incomplete.add(id);
+      if (found.complete) {
+        this.incomplete.delete(id);
+        this.knownLibraries = new Set(found.known);
+      } else this.incomplete.add(id);
     }
     return resolvePermissions(approved, roots);
+  }
+
+  /**
+   * Called before a call about these libraries. A library Komga did not list at the last look
+   * (added since the plugins started) may open file access for plugins enabled in it, so the
+   * plugins that read library files are re-checked (at most every 5 seconds per library).
+   */
+  async noteLibraries(libraryIds: string[]): Promise<void> {
+    const now = Date.now();
+    const unseen = libraryIds.filter((id) => !this.knownLibraries.has(id) && now - (this.missedAt.get(id) ?? 0) > 5000);
+    if (unseen.length === 0) return;
+    for (const id of unseen) this.missedAt.set(id, now);
+    for (const id of [...this.processes.keys()]) {
+      if (this.capabilities.approved(id).some((c) => c.startsWith("file-read:"))) {
+        await this.refreshPermissions(id).catch(() => {});
+      }
+    }
   }
 
   /**

@@ -13,6 +13,7 @@ import { CapabilityStore } from "./plugins/capabilities.ts";
 import { KomgaData } from "./plugins/komga-data.ts";
 import { FailureLog } from "./plugins/failures.ts";
 import { PluginStore } from "./plugins/store.ts";
+import { LibraryScopes } from "./plugins/library-scope.ts";
 import { PluginSupervisor } from "./plugins/supervisor.ts";
 
 export interface PluginHost {
@@ -36,17 +37,18 @@ export async function startPluginHost(config: Config): Promise<PluginHost> {
     if (capabilities.pending(plugin.id).length > 0) plugins.setEnabled(plugin.id, false);
   }
   const komga = new KomgaData(config, capabilities);
+  const scopes = new LibraryScopes(db);
 
   // The Plugin API: every call a plugin makes into the host ("settings.*", "storage.*", "komga.*")
   // arrives here, from that plugin's process.
-  const supervisor = new PluginSupervisor(plugins, config, failures, capabilities, (pluginId, method, args) => {
+  const supervisor = new PluginSupervisor(plugins, config, failures, capabilities, scopes, (pluginId, method, args) => {
     if (method.startsWith("komga.")) return komga.call(pluginId, method.slice("komga.".length), args);
     return pluginData.handleApiCall(pluginId, method, args);
   });
   await supervisor.startEnabled();
 
   const { secret } = await installBridge(config);
-  const ctx: HostContext = { config, db, plugins, pluginData, supervisor, refused, failures, capabilities };
+  const ctx: HostContext = { config, db, plugins, pluginData, supervisor, refused, failures, capabilities, scopes };
   const server = await startHttpServer(ctx, secret);
   const url = `http://127.0.0.1:${server.port}`;
   console.log(`[plugin-host] listening on port ${server.port}`);

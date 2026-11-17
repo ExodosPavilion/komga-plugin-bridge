@@ -78,3 +78,114 @@ Deno.test("file-read:* declares every configured library", async () => {
   assert.match(await probe(options, inA), /read:allowed/);
   assert.match(await probe(options, inB), /read:allowed/);
 });
+
+const LIB_A = "LIB-A";
+const LIB_B = "LIB-B";
+const choose = async (host: TestHost, body: unknown) => {
+  const bridge = new FakeBridge(await host.bridgeConfig(), host.url);
+  const response = await bridge.request("/api/plugin-libraries", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  await response.body?.cancel();
+  assert.equal(response.status, 200);
+  return bridge;
+};
+// The prober's own series call is made in library LIB-A, which every choice below includes.
+const read = async (bridge: FakeBridge, path: string) =>
+  (await bridge.seriesMetadata({ ...series(path), libraryId: LIB_A })).body.metadata?.summary as string;
+
+Deno.test("enabled for library A only, a plugin cannot read library B even with file-read:*", async () => {
+  const host = await startTestHost({
+    plugins: ["prober"],
+    capabilities: { prober: ["file-read:*"] },
+    libraryFiles,
+    libraries: true,
+  });
+  try {
+    const bridge = await choose(host, { plugin: "prober", libraries: [LIB_A] });
+    assert.match(await read(bridge, inA(host)), /read:allowed/);
+    assert.match(await read(bridge, inB(host)), /read:denied/);
+    // The Plugin Manager reports the capability as in effect while it covers an enabled library.
+    assert.deepEqual((await bridge.plugins())[0].capabilities, [{ capability: "file-read:*", granted: true }]);
+  } finally {
+    await host.dispose();
+  }
+});
+
+Deno.test("a folder-specific file-read is limited to the library it names even when enabled for both", async () => {
+  const host = await startTestHost({
+    plugins: ["prober"],
+    capabilities: { prober: ["file-read:{library}"] },
+    libraryFiles,
+    libraries: true,
+  });
+  try {
+    const bridge = await choose(host, { plugin: "prober", all: true });
+    assert.match(await read(bridge, inA(host)), /read:allowed/);
+    assert.match(await read(bridge, inB(host)), /read:denied/);
+  } finally {
+    await host.dispose();
+  }
+});
+
+Deno.test("changing the library choice changes what a running plugin can read", async () => {
+  const host = await startTestHost({
+    plugins: ["prober"],
+    capabilities: { prober: ["file-read:*"] },
+    libraryFiles,
+    libraries: true,
+  });
+  try {
+    let bridge = await choose(host, { plugin: "prober", libraries: [LIB_A] });
+    assert.match(await read(bridge, inB(host)), /read:denied/);
+    bridge = await choose(host, { plugin: "prober", libraries: [LIB_A, LIB_B] });
+    assert.match(await read(bridge, inB(host)), /read:allowed/);
+    bridge = await choose(host, { plugin: "prober", libraries: [LIB_A] });
+    assert.match(await read(bridge, inB(host)), /read:denied/);
+  } finally {
+    await host.dispose();
+  }
+});
+
+Deno.test("a plugin cannot read library folders when Komga's library list is unavailable", async () => {
+  const host = await startTestHost({
+    plugins: ["prober"],
+    capabilities: { prober: ["file-read:*"] },
+    libraryFiles,
+    libraries: false,
+  });
+  try {
+    const bridge = new FakeBridge(await host.bridgeConfig(), host.url);
+    assert.match(await read(bridge, inA(host)), /read:denied/);
+  } finally {
+    await host.dispose();
+  }
+});
+
+Deno.test("a plugin cannot learn KOMGA_API_KEY or any host environment variable, whatever it holds", async () => {
+  const secret = "host-secret-key-1234";
+  Deno.env.set("KOMGA_API_KEY", secret);
+  try {
+    const host = await startTestHost({
+      plugins: ["env-snoop"],
+      // every capability that exists: network, library reads and Komga data
+      capabilities: { "env-snoop": ["network", "file-read:*", "komga:read", "komga:write"] },
+      komgaApiKey: secret,
+      komgaUrl: "http://127.0.0.1:1",
+    });
+    try {
+      const bridge = new FakeBridge(await host.bridgeConfig(), host.url);
+      const summary = (await bridge.seriesMetadata(series(host.dirs.library))).body.metadata.summary as string;
+      assert.doesNotMatch(summary, /leaked/);
+      assert.ok(!summary.includes(secret));
+      // Deno denies reading the environment outright, and /proc is outside what it may read.
+      assert.equal(summary, "denied denied denied denied denied");
+    } finally {
+      await host.dispose();
+    }
+  } finally {
+    Deno.env.delete("KOMGA_API_KEY");
+  }
+});

@@ -1,12 +1,13 @@
 // One plugin, one Deno process. The process is started with only what its capabilities allow:
 // reading its own folder and the runner always; reading the library folders it holds file-read
-// for; the network if it holds the network capability. Never environment, writes or
-// subprocesses. Deno enforces this, not the plugin's good behaviour.
+// for in libraries it is enabled in; the network if it holds the network capability. Never
+// environment, writes or subprocesses, and it starts with an empty environment. Deno enforces
+// this, not the plugin's good behaviour.
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Config } from "../config.ts";
 import { PluginCallError } from "./failures.ts";
-import { resolvePermissions } from "./capabilities.ts";
+import type { Permissions } from "./capabilities.ts";
 import type { InstalledPlugin } from "./store.ts";
 
 const runnerFile = fileURLToPath(new URL("../runner/runner.ts", import.meta.url));
@@ -23,11 +24,17 @@ export class PluginProcess {
   private alive = false;
   private reading?: Promise<void>;
 
-  /** `onHostCall` answers the plugin's calls into the host (the Plugin API), e.g. "komga.getSeries". */
+  /** The permissions this process was started with. */
+  permissions?: Permissions;
+
+  /**
+   * `permissions` says what the process may do, as of now (see PluginSupervisor.permissionsOf).
+   * `onHostCall` answers the plugin's calls into the host (the Plugin API), e.g. "komga.getSeries".
+   */
   constructor(
     private readonly plugin: InstalledPlugin,
     private readonly config: Config,
-    private readonly approvedCapabilities: () => string[],
+    private readonly permissionsNow: () => Promise<Permissions>,
     private readonly onHostCall?: ApiCallHandler,
   ) {}
 
@@ -40,7 +47,8 @@ export class PluginProcess {
   }
 
   async start(): Promise<void> {
-    const { read, network } = resolvePermissions(this.approvedCapabilities(), this.config.libraryRoots);
+    const permissions = this.permissions = await this.permissionsNow();
+    const { read, network } = permissions;
     const readable = [this.plugin.dir, runnerDir, ...read].join(",");
     const command = new Deno.Command(this.config.denoPath, {
       args: [
@@ -54,7 +62,10 @@ export class PluginProcess {
       stdin: "piped",
       stdout: "piped",
       stderr: "inherit",
-      clearEnv: false,
+      // The host's environment holds secrets (KOMGA_API_KEY); a plugin process starts with none of
+      // it. Only the Deno cache location is passed, so Deno itself keeps working.
+      clearEnv: true,
+      env: Deno.env.get("DENO_DIR") ? { DENO_DIR: Deno.env.get("DENO_DIR")! } : {},
     });
     const child = command.spawn();
     this.child = child;

@@ -4,7 +4,9 @@
 import type { Config } from "../config.ts";
 import { type ApiCallHandler, PluginProcess } from "./process.ts";
 import { type FailureKind, type FailureLog, PluginCallError } from "./failures.ts";
-import type { CapabilityStore } from "./capabilities.ts";
+import { type CapabilityStore, type Permissions, resolvePermissions } from "./capabilities.ts";
+import { enabledLibraryRoots } from "./file-access.ts";
+import type { LibraryScopes } from "./library-scope.ts";
 import type { PluginStore } from "./store.ts";
 
 export class CapabilitiesNotApprovedError extends Error {
@@ -18,11 +20,16 @@ export class PluginSupervisor {
   /** Processes of plugins disabled automatically, still being stopped; stopAll waits for them. */
   private stopping = new Set<Promise<void>>();
 
+  /** Plugins started while Komga's library list could not be read, so their file access may be short. */
+  private incomplete = new Set<string>();
+  private lastRetry = new Map<string, number>();
+
   constructor(
     private readonly store: PluginStore,
     private readonly config: Config,
     private readonly failures: FailureLog,
     private readonly capabilities: CapabilityStore,
+    private readonly scopes: LibraryScopes,
     private readonly onHostCall?: ApiCallHandler,
   ) {}
 
@@ -35,13 +42,45 @@ export class PluginSupervisor {
   private async start(id: string): Promise<void> {
     const plugin = this.store.get(id);
     if (!plugin || this.capabilities.pending(id).length > 0) return;
-    const process = new PluginProcess(plugin, this.config, () => this.capabilities.approved(plugin.id), this.onHostCall);
+    const process = new PluginProcess(plugin, this.config, () => this.permissionsOf(id), this.onHostCall);
     this.processes.set(id, process);
     try {
       await process.start();
     } catch (error) {
       this.fail(id, "crash", `failed to start: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * What a plugin process may do now: its approved capabilities, with file-read limited to the
+   * libraries the plugin is enabled in (file-access.ts).
+   */
+  async permissionsOf(id: string): Promise<Permissions> {
+    const approved = this.capabilities.approved(id);
+    let roots: string[] = [];
+    if (approved.some((c) => c.startsWith("file-read:"))) {
+      const found = await enabledLibraryRoots(this.config, this.scopes, id);
+      roots = found.roots;
+      if (found.complete) this.incomplete.delete(id);
+      else this.incomplete.add(id);
+    }
+    return resolvePermissions(approved, roots);
+  }
+
+  /**
+   * Restarts a running plugin when what it may do has changed (its library choice or approved
+   * capabilities changed). A plugin whose permissions are unchanged keeps its process.
+   */
+  async refreshPermissions(id: string): Promise<void> {
+    const process = this.processes.get(id);
+    if (!process?.running || !process.permissions) return;
+    const next = await this.permissionsOf(id);
+    const before = process.permissions;
+    const same = before.network === next.network &&
+      JSON.stringify([...before.read].sort()) === JSON.stringify([...next.read].sort());
+    if (same) return;
+    await process.stop();
+    await this.start(id);
   }
 
   /**
@@ -104,6 +143,12 @@ export class PluginSupervisor {
    * call. Returns null when the plugin is not running or the call failed.
    */
   async callPlugin(pluginId: string, method: string, params: unknown): Promise<{ result: unknown } | null> {
+    // Komga's library list was unreachable when this plugin started (the host may have come up
+    // first): look again, at most every few seconds, so its file access is not lost until restart.
+    if (this.incomplete.has(pluginId) && Date.now() - (this.lastRetry.get(pluginId) ?? 0) > 5000) {
+      this.lastRetry.set(pluginId, Date.now());
+      await this.refreshPermissions(pluginId).catch(() => {});
+    }
     const process = this.processes.get(pluginId);
     if (!process) return null;
     try {

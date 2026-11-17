@@ -7,6 +7,7 @@ import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { type PluginHost, startPluginHost } from "../../../plugin-host/src/host.ts";
 import type { Config } from "../../../plugin-host/src/config.ts";
+import { type FakeKomga, startFakeKomga } from "./fake-komga.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const fixturePlugins = join(repoRoot, "tests", "seam2", "fixtures", "plugins");
@@ -42,6 +43,11 @@ export interface TestHostOptions {
   capabilities?: Record<string, string[]>;
   /** Files to create in both library folders (file name to content). */
   libraryFiles?: Record<string, string>;
+  /**
+   * Gives the host a stand-in Komga that lists two libraries (default: yes, unless `komgaUrl` is given): "LIB-A" rooted at `dirs.library`
+   * and "LIB-B" rooted at `dirs.library2`. Plugins can only read library folders Komga lists.
+   */
+  libraries?: boolean;
   callTimeoutMs?: number;
   failureThreshold?: number;
   bridgeTimeoutMs?: number;
@@ -115,6 +121,17 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
     denoPath: Deno.execPath(),
   };
 
+  const komga: FakeKomga | undefined = options.libraries ?? options.komgaUrl === undefined
+    ? startFakeKomga("fake-komga-api-key", [
+      { id: "LIB-A", name: "Library A", root: dirs.library },
+      { id: "LIB-B", name: "Library B", root: dirs.library2 },
+    ])
+    : undefined;
+  if (komga) {
+    config.komgaUrl = komga.url;
+    config.komgaApiKey = komga.apiKey;
+  }
+
   let host: PluginHost = await startPluginHost(config);
   const approveWaiting = async () => {
     if (options.approve === false) return;
@@ -153,6 +170,7 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
     },
     async dispose() {
       await host.stop();
+      await komga?.stop();
       await rm(root, { recursive: true, force: true });
     },
   };

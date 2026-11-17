@@ -1,5 +1,5 @@
 import { mergeSeriesMetadata } from "../../plugins/series-metadata.ts";
-import { scopesOf } from "../../plugins/library-scope.ts";
+
 import type { Router } from "../router.ts";
 
 /**
@@ -11,9 +11,9 @@ export function register(router: Router) {
     const body = await req.json().catch(() => null);
     const series = body?.series;
     if (typeof series?.path !== "string") return new Response(null, { status: 400 });
-    const scopes = scopesOf(ctx);
+    const scopes = ctx.scopes;
     const libraries = typeof series.libraryId === "string" ? [series.libraryId] : [];
-    const results = await ctx.supervisor.callAll("getSeriesMetadata", { series }, (id) => scopes.enabledFor(id, libraries));
+    const results = await ctx.supervisor.callAll("getSeriesMetadata", { series }, (id) => scopes.permitsCallAbout(id, libraries));
     return Response.json({ metadata: mergeSeriesMetadata(results.map((r) => r.result)) });
   });
 }

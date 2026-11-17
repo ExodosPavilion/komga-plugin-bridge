@@ -41,7 +41,7 @@ export class ResponseFilters {
     for (const id of this.supervisor.runningIds()) {
       const plugin = this.store.get(id);
       // A plugin enabled for no library acts nowhere, so its routes are not announced.
-      if (!plugin?.enabled || (this.scopes && !this.scopes.enabledFor(id))) continue;
+      if (!plugin?.enabled || (this.scopes && !this.scopes.isEnabledAnywhere(id))) continue;
       const key = `${plugin.dir}@${plugin.version}`;
       let cached = this.manifestRoutes.get(id);
       if (cached?.key !== key) {
@@ -77,7 +77,7 @@ export class ResponseFilters {
     const libraries = librariesOfRequest(request.path, request.query);
     for (const [pluginId, routes] of await this.routesByPlugin()) {
       if (!routes.some((route) => routeMatches(route, request.path))) continue;
-      if (this.scopes && !this.scopes.enabledFor(pluginId, libraries)) continue;
+      if (this.scopes && !this.scopes.permitsCallAbout(pluginId, libraries)) continue;
       const answer = await this.supervisor.callPlugin(pluginId, "filterResponse", { request, body: current });
       if (answer && answer.result !== null && answer.result !== undefined) {
         current = answer.result;

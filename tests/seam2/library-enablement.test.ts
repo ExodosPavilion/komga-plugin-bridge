@@ -147,7 +147,7 @@ Deno.test("a warning names each library where a metadata plugin and a built-in i
 });
 
 Deno.test("without Komga access the warning list says why it is empty", () =>
-  withHost({ plugins: ["reference"] }, async (_host, bridge) => {
+  withHost({ plugins: ["reference"], libraries: false }, async (_host, bridge) => {
     const body = await (await bridge.request("/api/plugin-clashes")).json();
     assert.deepEqual(body.clashes, []);
     assert.match(body.unavailable, /KOMGA_URL/);

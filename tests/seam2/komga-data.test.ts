@@ -61,7 +61,7 @@ Deno.test("the API key is never exposed to a plugin or in any response", () =>
   }));
 
 Deno.test("when Komga is not configured a data call fails clearly", async () => {
-  const host = await startTestHost({ plugins: ["komga-reader"], callTimeoutMs: 3000 });
+  const host = await startTestHost({ plugins: ["komga-reader"], callTimeoutMs: 3000, libraries: false });
   try {
     const bridge = new FakeBridge(await host.bridgeConfig(), host.url);
     assert.match(await summaryFor(bridge, "read"), /^error:.*not configured/);

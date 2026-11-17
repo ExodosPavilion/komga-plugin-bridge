@@ -1,11 +1,10 @@
-import { resolvePermissions } from "../../plugins/capabilities.ts";
 import type { Router } from "../router.ts";
 
 /** The installed plugins and whether each is running. The Plugin Manager will build on this. */
 export function register(router: Router) {
-  router.get("/api/plugins", (_req, ctx) =>
+  router.get("/api/plugins", async (_req, ctx) =>
     Response.json(
-      ctx.plugins.list().map((plugin) => ({
+      await Promise.all(ctx.plugins.list().map(async (plugin) => ({
         id: plugin.id,
         version: plugin.version,
         enabled: plugin.enabled,
@@ -13,7 +12,7 @@ export function register(router: Router) {
         pid: ctx.supervisor.pid(plugin.id),
         autoDisabled: ctx.failures.isAutoDisabled(plugin.id),
         consecutiveFailures: ctx.failures.consecutiveFailures(plugin.id),
-        capabilities: resolvePermissions(ctx.capabilities.approved(plugin.id), ctx.config.libraryRoots).statuses,
-      })),
+        capabilities: (await ctx.supervisor.permissionsOf(plugin.id)).statuses,
+      }))),
     ));
 }

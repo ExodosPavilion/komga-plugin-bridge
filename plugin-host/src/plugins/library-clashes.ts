@@ -69,7 +69,7 @@ export async function findClashes(
   for (const plugin of plugins) {
     if (!plugin.enabled || !(await isMetadataPlugin(plugin))) continue;
     for (const library of libraries) {
-      if (!scopes.get(plugin.id).all && !scopes.enabledFor(plugin.id, [library.id])) continue;
+      if (!scopes.isEnabledInAll(plugin.id, [library.id])) continue;
       const importers = IMPORTERS.filter((i) => library[i.setting] === true);
       if (importers.length > 0) {
         clashes.push({ plugin: plugin.id, libraryId: library.id, libraryName: library.name, importers });

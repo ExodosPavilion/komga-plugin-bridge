@@ -9,7 +9,8 @@
 //
 // A capability is a string in a plugin's manifest:
 //   "network"              the plugin may reach the network
-//   "file-read:<library>"  read files under that library folder; "*" means every configured library
+//   "file-read:<folder>"   read files under that library folder; "*" means every library. Either only
+//                          counts for libraries the plugin is enabled in (file-access.ts)
 //   "file-write:<library>" reserved: part of the model, but never granted yet
 //   "komga:read" / "komga:write"  Komga's data through the Plugin API (checked by the host)
 import { readFile } from "node:fs/promises";
@@ -107,7 +108,7 @@ export function parseCapability(text: string): Capability | null {
   return null;
 }
 
-/** The libraries a capability covers, among those the host is configured with. */
+/** The library roots a capability covers, among the roots of the libraries the plugin is enabled in. */
 function librariesOf(capability: { library: string }, libraryRoots: string[]): string[] {
   if (capability.library === "*") return libraryRoots;
   const wanted = resolve(capability.library);
@@ -122,7 +123,10 @@ export interface Permissions {
   statuses: CapabilityStatus[];
 }
 
-/** Maps approved capabilities (from CapabilityStore.approved) to Deno permissions. */
+/**
+ * Maps approved capabilities (from CapabilityStore.approved) to Deno permissions. `libraryRoots` are
+ * the root folders of the libraries the plugin is enabled in (enabledLibraryRoots).
+ */
 export function resolvePermissions(approved: string[], libraryRoots: string[]): Permissions {
   const permissions: Permissions = { read: [], network: false, statuses: [] };
   for (const text of approved) {

@@ -1,5 +1,5 @@
 import { dispatchEvent } from "../../plugins/events.ts";
-import { libraryOfEvent, scopesOf } from "../../plugins/library-scope.ts";
+import { libraryOfEvent } from "../../plugins/library-scope.ts";
 import type { Router } from "../router.ts";
 
 /**
@@ -13,13 +13,13 @@ export function register(router: Router) {
     const data = typeof body.data === "object" && body.data !== null ? body.data : {};
     // An event about a library reaches only plugins enabled for it; other events (users, read
     // progress, ...) are not about one library and reach every subscriber enabled somewhere.
-    const scopes = scopesOf(ctx);
+    const scopes = ctx.scopes;
     const library = libraryOfEvent(data);
     const delivered = await dispatchEvent(
       ctx.plugins,
       ctx.supervisor,
       { type: body.type, data },
-      (id) => scopes.enabledFor(id, library ? [library] : []),
+      (id) => scopes.permitsCallAbout(id, library ? [library] : []),
     );
     return Response.json({ delivered });
   });

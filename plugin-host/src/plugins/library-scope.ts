@@ -2,7 +2,6 @@
 // in every library. Once an admin picks libraries it acts only in those (and in none when the
 // list is empty). Every kind of plugin call (metadata, events, response filtering) asks this.
 import type { Database } from "../db/database.ts";
-import type { HostContext } from "../context.ts";
 
 export interface LibraryScope {
   all: boolean;
@@ -40,26 +39,25 @@ export class LibraryScopes {
     }
   }
 
-  /**
-   * Whether the plugin acts for a call about these libraries. With no library named (a call that
-   * is not about one library) it acts when it is enabled anywhere. With several named, it must
-   * be enabled for all of them.
-   */
-  enabledFor(pluginId: string, libraryIds: string[] = []): boolean {
+  /** Whether the plugin is enabled in at least one library. */
+  isEnabledAnywhere(pluginId: string): boolean {
     const scope = this.get(pluginId);
-    if (scope.all) return true;
-    if (libraryIds.length === 0) return scope.libraries.length > 0;
-    return libraryIds.every((id) => scope.libraries.includes(id));
+    return scope.all || scope.libraries.length > 0;
   }
-}
 
-const instances = new WeakMap<HostContext, LibraryScopes>();
+  /** Whether the plugin is enabled in every one of these libraries. */
+  isEnabledInAll(pluginId: string, libraryIds: string[]): boolean {
+    const scope = this.get(pluginId);
+    return scope.all || libraryIds.every((id) => scope.libraries.includes(id));
+  }
 
-/** The one LibraryScopes of a host context. */
-export function scopesOf(ctx: HostContext): LibraryScopes {
-  let scopes = instances.get(ctx);
-  if (!scopes) instances.set(ctx, scopes = new LibraryScopes(ctx.db));
-  return scopes;
+  /**
+   * Whether the plugin acts for a call about these libraries: enabled in all of them, or, for a
+   * call that is not about any library, enabled anywhere.
+   */
+  permitsCallAbout(pluginId: string, libraryIds: string[] = []): boolean {
+    return libraryIds.length === 0 ? this.isEnabledAnywhere(pluginId) : this.isEnabledInAll(pluginId, libraryIds);
+  }
 }
 
 /** The library an event is about, if any (the Bridge's EventMapper puts it in a fixed place). */

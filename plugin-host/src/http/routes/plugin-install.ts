@@ -32,6 +32,7 @@ export function register(router: Router) {
     if (typeof body?.id !== "string") return new Response(null, { status: 400 });
     if (!ctx.plugins.get(body.id)) return new Response(null, { status: 404 });
     ctx.capabilities.approve(body.id);
+    await ctx.supervisor.refreshPermissions(body.id);
     return new Response(null, { status: 200 });
   });
 

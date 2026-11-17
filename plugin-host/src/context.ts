@@ -7,6 +7,7 @@ import type { PluginSupervisor } from "./plugins/supervisor.ts";
 import type { PluginStore } from "./plugins/store.ts";
 import type { CapabilityStore } from "./plugins/capabilities.ts";
 import type { PluginData } from "./plugins/settings.ts";
+import type { LibraryScopes } from "./plugins/library-scope.ts";
 
 export interface HostContext {
   config: Config;
@@ -19,4 +20,6 @@ export interface HostContext {
   failures: FailureLog;
   /** The one store of approved capabilities. */
   capabilities: CapabilityStore;
+  /** Which libraries each plugin is enabled in. */
+  scopes: LibraryScopes;
 }

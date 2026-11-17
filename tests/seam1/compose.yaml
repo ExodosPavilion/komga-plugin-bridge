@@ -1,0 +1,69 @@
+# Seam 1: the whole system. Stock Komga plus the Plugin Host, a fixture library, and the reference
+# plugin dropped into the plugins folder. Driven by the `tests` service through Komga's address.
+# Run it with tests/seam1/run.sh.
+#
+# The komga service is a normal stock Komga service; the two lines marked "added" are all the
+# plugin system asks of it.
+name: komga-plugin-bridge-seam1
+
+services:
+  # Stands in for the admin dropping a plugin folder into the plugins volume.
+  plugin-dropper:
+    build:
+      context: ../..
+      dockerfile: tests/seam1/plugin-dropper.Dockerfile
+    labels: &labels
+      komga-plugin-bridge: test
+    volumes:
+      - plugins:/plugins
+
+  plugin-host:
+    build:
+      context: ../..
+      dockerfile: plugin-host/Dockerfile
+    labels: *labels
+    depends_on:
+      plugin-dropper:
+        condition: service_completed_successfully
+    environment:
+      PLUGIN_HOST_LIBRARY_ROOTS: /data
+    volumes:
+      - bridge:/plugin-bridge
+      - state:/state
+      - plugins:/plugins:ro
+      - library:/data:ro
+    healthcheck:
+      test: ["CMD", "deno", "eval", "await fetch('http://127.0.0.1:8080/healthz').then(r => Deno.exit(r.ok ? 0 : 1))"]
+      interval: 2s
+      retries: 30
+
+  komga:
+    image: gotson/komga:1.30.1
+    labels: *labels
+    depends_on:
+      plugin-host:
+        condition: service_healthy
+    environment:
+      JAVA_TOOL_OPTIONS: -javaagent:/plugin-bridge/bridge.jar # added
+    volumes:
+      - library:/data:ro
+      - bridge:/plugin-bridge:ro # added
+
+  tests:
+    build:
+      context: ../..
+      dockerfile: tests/seam1/Dockerfile
+    labels: *labels
+    user: "0"
+    depends_on:
+      - komga
+    environment:
+      KOMGA_URL: http://komga:25600
+    volumes:
+      - library:/data
+
+volumes:
+  bridge:
+  state:
+  plugins:
+  library:

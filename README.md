@@ -1,2 +1,42 @@
 # komga-plugin-bridge
 Adds plugin support to Komga. Not affiliated with the Komga project
+
+## Layout
+
+| Folder | What it is |
+| --- | --- |
+| `bridge/` | The Bridge: a single jar (Java, for now) loaded into stock Komga as a Java agent ([ADR-0003](docs/adr/0003-bridge-loads-as-a-java-agent-on-the-system-class-path.md)). One class per feature, registered in `BridgeAutoConfiguration`. |
+| `plugin-host/` | The Plugin Host (Deno/TypeScript) and its `Dockerfile`, which also builds the Bridge into the image. |
+| `plugins/reference/` | The reference plugin. |
+| `tests/seam1/` | Whole system in real containers, driven through Komga's address. |
+| `tests/seam2/` | The Plugin Host alone against a fake Komga and a fake Bridge. |
+| `prototypes/` | Throwaway prototypes, to be deleted. |
+
+Inside `plugin-host/src/`, each concern has its own module so tickets rarely touch the same file:
+
+- `http/routes/*.ts`: one file per group of routes, each exporting `register(router)`. Files are discovered automatically; add a file, edit nothing. Routes need the shared secret unless marked `public`.
+- `db/migrations/*.ts`: one file per schema change, named `<yyyymmdd>_<n>_<what>.ts`, exporting `up(db)`. Applied in name order, once each.
+- `plugins/`: the plugin store, discovery, per-plugin processes, and the supervisor that calls them.
+- `bridge/`: placing the Bridge and shared secret in the volume shared with Komga.
+- `context.ts`, `host.ts`: what route modules receive, and the wiring.
+
+## Plugin contract (so far)
+
+A plugin is a folder in the plugins directory with a `manifest.json` (`id`, `version`, optional `entry`, default `index.ts`) and a module whose default export has `getSeriesMetadata({ series })`, returning `{ title?, summary?, publisher?, language?, genres? }` or `null`. Each enabled plugin runs in its own Deno process that may only read its own folder and the library folders. Archives, capabilities, settings and manifest validation come in later tickets.
+
+## Tests
+
+Both need only Docker. The seams are described in the spec (#1).
+
+```sh
+sh tests/seam2/run.sh              # Plugin Host alone, fake Komga and Bridge; seconds
+sh tests/seam1/run.sh              # stock Komga + Plugin Host + fixture library; about a minute
+```
+
+`seam2/run.sh` passes extra arguments to `deno test` (for example `--filter secret`). `seam1/run.sh` uses `docker compose` and removes only its own compose project (`komga-plugin-bridge-seam1`); `KEEP=1` leaves it up. On Windows with the Docker engine inside WSL, run the scripts inside that WSL distribution.
+
+With a local Deno, `deno task test:seam2` runs seam 2 directly.
+
+## Running it
+
+In your compose file, add the Plugin Host, and give Komga the shared volume and one variable. See `tests/seam1/compose.yaml` for a working example; the Komga lines marked `added` are all that changes. Start the Plugin Host once before Komga, so the Bridge is in the shared volume (a missing jar stops Komga from starting). Mount library folders into the Plugin Host read-only at the same paths as in Komga, and list them in `PLUGIN_HOST_LIBRARY_ROOTS`. Drop plugin folders into the `/plugins` volume and restart the Plugin Host.

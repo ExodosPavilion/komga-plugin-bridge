@@ -62,12 +62,17 @@ Deno.test("on an unsupported Komga version the Bridge is inactive, Komga is stoc
   assert.match(inactive.reason, /not on the Bridge's supported list/);
   assert.match(inactive.reason, /9\.9\.9/);
   assert.match(inactive.komgaVersion, /^\d+\.\d+\.\d+/);
-  // Every Bridge auto-configuration is off, including the Plugin Host call gate: with the right
-  // secret the route does not answer as the Bridge would.
+  // Every Bridge auto-configuration is off, including the Plugin Host call gate. On the supported
+  // Komga this route answers 401 without the secret and {"ok":true} with it; here Komga treats it
+  // as any unknown path (its web UI answers), so neither happens.
   const config = JSON.parse(await Deno.readTextFile("/plugin-bridge/bridge.json"));
-  const ping = await fetch(`${UNSUPPORTED_URL}/plugin-bridge/host/ping`, { headers: { Authorization: `Bearer ${config.secret}` } });
-  await ping.body?.cancel();
-  assert.notEqual(ping.status, 200);
+  const bare = await fetch(`${UNSUPPORTED_URL}/plugin-bridge/host/ping`);
+  assert.notEqual(bare.status, 401);
+  await bare.body?.cancel();
+  const authed = await fetch(`${UNSUPPORTED_URL}/plugin-bridge/host/ping`, {
+    headers: { Authorization: `Bearer ${config.secret}` },
+  });
+  assert.doesNotMatch(await authed.text(), /"ok":\s*true/);
 
   // The supported Komga reported itself active.
   assert.ok(reports.some((r: { active: boolean }) => r.active));

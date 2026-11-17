@@ -3,7 +3,8 @@
 // events and settings can be tried with no Komga installed.
 //
 // This is seam 2 of the repository's own tests (tests/seam2/support) packaged for use from a
-// plugin project; the repository's tests use it too.
+// plugin project; the repository's tests use it too. The package stands alone: `vendor/` holds the
+// Plugin Host and stand-ins it needs, built from the repository by scripts/bundle.ts.
 //
 //   const run = await runPlugin(".", { settings: { greeting: "hi" } });
 //   try {
@@ -15,10 +16,11 @@
 // Run tests with `deno test --allow-all`: the plugin runs in a subprocess the host starts.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { startTestHost } from "../tests/seam2/support/host.ts";
-import { book, FakeBridge, series } from "../tests/seam2/support/fake-bridge.ts";
-import { type FakeKomga, startFakeKomga } from "../tests/seam2/support/fake-komga.ts";
-import type { BookMetadata, SeriesMetadata } from "../plugin-api/src/index.ts";
+import { startTestHost } from "./vendor/tests/seam2/support/host.ts";
+import { book, FakeBridge, series } from "./vendor/tests/seam2/support/fake-bridge.ts";
+import type { FakeKomga } from "./vendor/tests/seam2/support/fake-komga.ts";
+import type { BookMetadata } from "./vendor/plugin-host/src/plugins/book-metadata.ts";
+import type { SeriesMetadata } from "./vendor/plugin-host/src/plugins/series-metadata.ts";
 
 export interface RunPluginOptions {
   /** Setting values to save before the first call (validated against the manifest, as in the Plugin Manager). */
@@ -28,8 +30,6 @@ export interface RunPluginOptions {
    * read them when its manifest declares `file-read:*`. Paths given to calls are under `run.library`.
    */
   library?: Record<string, string>;
-  /** Start a stand-in Komga REST API (canned data, every request recorded) and point the host at it. */
-  komga?: boolean;
   /** Capabilities to run with instead of the manifest's (the library folder is `{library}`). */
   capabilities?: string[];
   /** Time limit for one plugin call; default 5000. */
@@ -58,7 +58,11 @@ export interface PluginRun {
   saveSettings(values: Record<string, unknown>): Promise<SettingsResult>;
   /** Failures recorded against the plugin (timeouts, crashes, errors), oldest first. */
   failures(): Promise<{ at: string; kind: string; reason: string }[]>;
-  /** Requests the plugin's `api.komga` calls made to the stand-in Komga (needs `komga: true`). */
+  /**
+   * Requests made to the stand-in Komga, which answers the plugin's `api.komga` calls (canned
+   * data; needs the `komga:read` / `komga:write` capability). The library list the host reads
+   * for itself (`GET /api/v1/libraries`) is not included.
+   */
   komgaRequests: FakeKomga["requests"];
   /** The stand-in Bridge, for anything the helpers above do not cover. */
   bridge: FakeBridge;
@@ -71,18 +75,12 @@ export async function runPlugin(pluginDir: string, options: RunPluginOptions = {
   const dir = resolve(pluginDir);
   const manifest = JSON.parse(await readFile(join(dir, "manifest.json"), "utf8"));
   const id: string = manifest.id;
-  const komga = options.komga ? startFakeKomga() : undefined;
   const host = await startTestHost({
     pluginDirs: [dir],
     capabilities: options.capabilities ? { [id]: options.capabilities } : undefined,
     callTimeoutMs: options.callTimeoutMs,
-    komgaUrl: komga?.url,
-    komgaApiKey: komga?.apiKey,
   });
-  const dispose = async () => {
-    await host.dispose();
-    await komga?.stop();
-  };
+  const dispose = () => host.dispose();
   try {
     for (const [file, content] of Object.entries(options.library ?? {})) {
       const target = join(host.dirs.library, file);
@@ -127,7 +125,9 @@ export async function runPlugin(pluginDir: string, options: RunPluginOptions = {
       async failures() {
         return (await bridge.failures(id)).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
       },
-      komgaRequests: komga?.requests ?? [],
+      get komgaRequests() {
+        return (host.komga?.requests ?? []).filter((r) => !(r.method === "GET" && r.path === "/api/v1/libraries"));
+      },
       bridge,
       dispose,
     };

@@ -22,6 +22,8 @@ export interface BridgeConfigFile {
 export interface TestHost {
   url: string;
   dirs: { data: string; plugins: string; bridge: string; library: string; library2: string };
+  /** The stand-in Komga (when the host was given one): lists the two libraries, answers `komga.*` calls. */
+  komga?: FakeKomga;
   /** What a real Bridge would read from the shared volume to reach the host. */
   bridgeConfig(): Promise<BridgeConfigFile>;
   /** Stops the host and starts a new one on the same directories. */
@@ -44,8 +46,9 @@ export interface TestHostOptions {
   /** Files to create in both library folders (file name to content). */
   libraryFiles?: Record<string, string>;
   /**
-   * Gives the host a stand-in Komga that lists two libraries (default: yes, unless `komgaUrl` is given): "LIB-A" rooted at `dirs.library`
-   * and "LIB-B" rooted at `dirs.library2`. Plugins can only read library folders Komga lists.
+   * Gives the host a stand-in Komga (default: yes, unless `komgaUrl` is given) that lists two
+   * libraries, "LIB-A" rooted at `dirs.library` and "LIB-B" at `dirs.library2`. Plugins can only
+   * read library folders Komga lists.
    */
   libraries?: boolean;
   callTimeoutMs?: number;
@@ -157,6 +160,7 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
       return host.url;
     },
     dirs,
+    komga,
     async bridgeConfig() {
       return JSON.parse(await readFile(join(dirs.bridge, "bridge.json"), "utf8"));
     },

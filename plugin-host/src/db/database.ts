@@ -5,13 +5,9 @@
 // exporting `up(db)`. Files are discovered and applied in name order, each exactly once, so
 // parallel tickets add files instead of editing a shared list.
 import { DatabaseSync } from "node:sqlite";
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { loadMigrations } from "./migration-modules.ts";
 
 export type Database = DatabaseSync;
-
-const migrationsDir = join(fileURLToPath(new URL(".", import.meta.url)), "migrations");
 
 export async function openDatabase(file: string): Promise<Database> {
   const db = new DatabaseSync(file);
@@ -20,17 +16,13 @@ export async function openDatabase(file: string): Promise<Database> {
   const applied = new Set(
     db.prepare("SELECT name FROM schema_migrations").all().map((row) => String(row.name)),
   );
-  const names = (await readdir(migrationsDir)).filter((n) => n.endsWith(".ts")).sort();
-  for (const name of names) {
-    if (applied.has(name)) continue;
-    const migration: { up(db: Database): void } = await import(
-      new URL(`./migrations/${name}`, import.meta.url).href
-    );
+  for (const migration of await loadMigrations()) {
+    if (applied.has(migration.name)) continue;
     db.exec("BEGIN");
     try {
       migration.up(db);
       db.prepare("INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)").run(
-        name,
+        migration.name,
         new Date().toISOString(),
       );
       db.exec("COMMIT");

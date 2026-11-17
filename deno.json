@@ -4,7 +4,8 @@
     "@komga-plugin-bridge/test-runner": "./plugin-test-runner/mod.ts"
   },
   "tasks": {
-    "test:seam2": "deno test --allow-all tests/seam2/",
+    "bundle:runner": "deno run --allow-read --allow-write plugin-test-runner/scripts/bundle.ts",
+    "test:seam2": "deno task bundle:runner && deno test --allow-all tests/seam2/",
     "host": "deno run --allow-all plugin-host/src/main.ts",
     "check:plugins": "deno check plugins/reference/index.ts tests/seam2/fixtures/plugins/*/index.ts tests/seam1/fixtures/me-filter/index.ts plugin-api/src/index.ts"
   },

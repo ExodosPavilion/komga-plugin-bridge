@@ -3,8 +3,8 @@
 import assert from "node:assert/strict";
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, join, relative } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { runPlugin } from "../../plugin-test-runner/mod.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -57,7 +57,7 @@ Deno.test("settings: defaults, values given up front, saved values and rejected 
 });
 
 Deno.test("Komga data: the plugin reads from a stand-in Komga whose requests are recorded", async () => {
-  const run = await runPlugin(fixture("komga-reader"), { komga: true });
+  const run = await runPlugin(fixture("komga-reader"));
   try {
     const metadata = await run.seriesMetadata({ name: "read", path: "/x" });
     assert.equal(metadata?.summary, "read:Fake series");
@@ -79,34 +79,55 @@ Deno.test("failures: a crashing plugin is reported with its reason", async () =>
   }
 });
 
-Deno.test("the template's own tests run the reference-style plugin through the runner", async () => {
-  // A plugin author's project: the template with the runner resolved from this repository.
+async function deno(cwd: string, ...args: string[]) {
+  const out = await new Deno.Command(Deno.execPath(), {
+    args,
+    cwd,
+    env: { NO_COLOR: "1" },
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  const text = new TextDecoder();
+  return { code: out.code, output: text.decode(out.stdout) + text.decode(out.stderr) };
+}
+
+Deno.test("a plugin project outside this repository checks and tests with the runner and the API package", async () => {
+  // A plugin author's repository: the template in a folder far from this repository, with both
+  // packages resolved through import map entries pointing at local paths, standing in for JSR.
   const dir = await mkdtemp(join(tmpdir(), "plugin-project-"));
   try {
+    assert.ok(relative(repoRoot, dir).startsWith(".."), "the project is outside the repository");
     await cp(join(repoRoot, "template"), dir, { recursive: true });
-    const map = join(dir, "local-import-map.json");
-    await writeFile(
-      map,
-      JSON.stringify({
-        imports: {
-          "@komga-plugin-bridge/plugin-api": join(repoRoot, "plugin-api", "src", "index.ts"),
-          "@komga-plugin-bridge/test-runner": join(repoRoot, "plugin-test-runner", "mod.ts"),
-        },
-      }),
-    );
-    const out = await new Deno.Command(Deno.execPath(), {
-      args: ["test", "--allow-all", `--import-map=${map}`, "index.test.ts"],
-      cwd: dir,
-      env: { NO_COLOR: "1" },
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    const text = new TextDecoder();
-    const output = text.decode(out.stdout) + text.decode(out.stderr);
-    assert.equal(out.code, 0, output);
-    assert.match(output, /1 passed \| 0 failed/);
-    assert.ok((await readFile(join(dir, "index.test.ts"), "utf8")).includes("runPlugin"));
+    const config = JSON.parse(await readFile(join(dir, "deno.json"), "utf8"));
+    config.imports = {
+      "@komga-plugin-bridge/plugin-api": pathToFileURL(join(repoRoot, "plugin-api", "src", "index.ts")).href,
+      "@komga-plugin-bridge/test-runner": pathToFileURL(join(repoRoot, "plugin-test-runner", "mod.ts")).href,
+    };
+    await writeFile(join(dir, "deno.json"), JSON.stringify(config, null, 2));
+
+    const check = await deno(dir, "task", "check");
+    assert.equal(check.code, 0, check.output);
+    const test = await deno(dir, "task", "test");
+    assert.equal(test.code, 0, test.output);
+    assert.match(test.output, /1 passed \| 0 failed/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+Deno.test("the test runner package publishes on its own (dry run)", async () => {
+  // Everything it imports lies inside its folder; `--allow-slow-types` because the bundled Plugin
+  // Host is not written with explicit types for every export.
+  const dry = await deno(
+    join(repoRoot, "plugin-test-runner"),
+    "publish",
+    "--dry-run",
+    "--allow-dirty",
+    "--allow-slow-types",
+  );
+  assert.equal(dry.code, 0, dry.output);
+  assert.match(dry.output, /Dry run complete/);
+  const published = [...dry.output.matchAll(/file:\/\/(\S+\.ts) /g)].map((m) => m[1]);
+  assert.ok(published.length > 40, "the Plugin Host is bundled into the package");
+  assert.ok(published.every((file) => relative(join(repoRoot, "plugin-test-runner"), file).startsWith("vendor") || file.endsWith("/mod.ts")), published.join("\n"));
 });

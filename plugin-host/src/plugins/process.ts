@@ -3,15 +3,20 @@
 // for in libraries it is enabled in; the network if it holds the network capability. Never
 // environment, writes or subprocesses, and it starts with an empty environment. Deno enforces
 // this, not the plugin's good behaviour.
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Config } from "../config.ts";
 import { PluginCallError } from "./failures.ts";
 import type { Permissions } from "./capabilities.ts";
 import type { InstalledPlugin } from "./store.ts";
 
-const runnerFile = fileURLToPath(new URL("../runner/runner.ts", import.meta.url));
-const runnerDir = join(runnerFile, "..");
+// The runner is a module URL: a file here, but a registry address when the host is a package
+// (the test runner), which Deno can run all the same.
+const runnerUrl = import.meta.resolve("../runner/runner.ts");
+const runnerDir = runnerUrl.startsWith("file:") ? dirname(fileURLToPath(runnerUrl)) : null;
+
+/** Only what Deno needs to find its own module cache; never anything the host holds secret. */
+const DENO_ENV = ["DENO_DIR", "HOME", "XDG_CACHE_HOME", "LOCALAPPDATA"];
 
 /** Answers a Plugin API call a plugin makes from inside its process, e.g. "komga.getSeries" or "storage.get". */
 export type ApiCallHandler = (pluginId: string, method: string, args: unknown[]) => Promise<unknown>;
@@ -49,23 +54,23 @@ export class PluginProcess {
   async start(): Promise<void> {
     const permissions = this.permissions = await this.permissionsNow();
     const { read, network } = permissions;
-    const readable = [this.plugin.dir, runnerDir, ...read].join(",");
+    const readable = [this.plugin.dir, ...(runnerDir ? [runnerDir] : []), ...read].join(",");
     const command = new Deno.Command(this.config.denoPath, {
       args: [
         "run",
         "--no-prompt",
         `--allow-read=${readable}`,
         ...(network ? ["--allow-net"] : []),
-        runnerFile,
+        runnerUrl,
         join(this.plugin.dir, this.plugin.entry),
       ],
       stdin: "piped",
       stdout: "piped",
       stderr: "inherit",
       // The host's environment holds secrets (KOMGA_API_KEY); a plugin process starts with none of
-      // it. Only the Deno cache location is passed, so Deno itself keeps working.
+      // it. Only the variables Deno needs to find its cache are passed, so Deno itself keeps working.
       clearEnv: true,
-      env: Deno.env.get("DENO_DIR") ? { DENO_DIR: Deno.env.get("DENO_DIR")! } : {},
+      env: Object.fromEntries(DENO_ENV.flatMap((name) => Deno.env.get(name) ? [[name, Deno.env.get(name)!]] : [])),
     });
     const child = command.spawn();
     this.child = child;

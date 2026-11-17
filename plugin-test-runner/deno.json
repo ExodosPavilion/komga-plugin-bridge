@@ -1,0 +1,10 @@
+{
+  "name": "@komga-plugin-bridge/test-runner",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": "./mod.ts",
+  "publish": {
+    "include": ["mod.ts", "vendor/**/*.ts", "README.md", "LICENSE"],
+    "exclude": ["!vendor"]
+  }
+}

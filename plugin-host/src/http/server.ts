@@ -3,12 +3,9 @@
 //
 // Every route except those marked public needs the shared secret, which only the Bridge (and
 // the host's own tests, standing in for it) holds.
-import { readdir } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import type { HostContext } from "../context.ts";
 import { Router } from "./router.ts";
-
-const routesDir = fileURLToPath(new URL("./routes/", import.meta.url));
+import { loadRouteModules } from "./route-modules.ts";
 
 export interface HttpServer {
   port: number;
@@ -17,12 +14,7 @@ export interface HttpServer {
 
 export async function startHttpServer(ctx: HostContext, secret: string): Promise<HttpServer> {
   const router = new Router();
-  for (const file of (await readdir(routesDir)).filter((f) => f.endsWith(".ts")).sort()) {
-    const module: { register(router: Router): void } = await import(
-      new URL(`./routes/${file}`, import.meta.url).href
-    );
-    module.register(router);
-  }
+  for (const module of await loadRouteModules()) module.register(router);
 
   const server = Deno.serve(
     { port: ctx.config.port, hostname: "0.0.0.0", onListen: () => {} },

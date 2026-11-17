@@ -16,6 +16,6 @@ Deno.test("the plugin supplies series metadata", async () => {
 // More things to try:
 //   runPlugin(".", { settings: { name: "value" } })   settings declared in manifest.json
 //   runPlugin(".", { library: { "Series/info.json": "{}" } })   files the plugin reads (needs file-read:*)
-//   runPlugin(".", { komga: true })                    a stand-in Komga for api.komga calls
+//   run.komgaRequests                                  what api.komga calls sent to the stand-in Komga
 //   await run.event("LibraryScanned", { ... })         events the plugin subscribed to
 //   await run.bookMetadata({ path })  await run.saveSettings({ ... })  await run.failures()

@@ -36,7 +36,14 @@ export class FakeBridge {
   }
 
   async plugins(): Promise<
-    { id: string; version: string; enabled: boolean; running: boolean; pid: number | null }[]
+    {
+      id: string;
+      version: string;
+      enabled: boolean;
+      running: boolean;
+      pid: number | null;
+      capabilities: { capability: string; granted: boolean }[];
+    }[]
   > {
     const response = await this.request("/api/plugins");
     return await response.json();

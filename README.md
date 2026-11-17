@@ -22,7 +22,7 @@ Inside `plugin-host/src/`, each concern has its own module so tickets rarely tou
 
 ## Plugin contract (so far)
 
-A plugin is a folder in the plugins directory with a `manifest.json` (`id`, `version`, optional `entry`, default `index.ts`) and a module whose default export has `getSeriesMetadata({ series })`, returning `{ title?, summary?, publisher?, language?, genres? }` or `null`. Each enabled plugin runs in its own Deno process that may only read its own folder and the library folders. Archives, capabilities, settings and manifest validation come in later tickets.
+A plugin is a folder in the plugins directory with a `manifest.json` (`id`, `version`, optional `entry`, default `index.ts`) and a module whose default export has `getSeriesMetadata({ series })`, returning `{ title?, summary?, publisher?, language?, genres? }` or `null`. Each enabled plugin runs in its own Deno process that may only read its own folder plus what its `capabilities` (manifest array of strings) allow: `network`, and `file-read:<library folder>` (or `file-read:*` for every configured library). `file-write:<library>` is in the model but is never granted yet. Until capability approval exists, a folder install is granted what it declares. Archives, capabilities, settings and manifest validation come in later tickets.
 
 ## Tests
 

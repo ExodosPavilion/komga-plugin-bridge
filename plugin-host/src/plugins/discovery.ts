@@ -9,6 +9,8 @@ export interface DiscoveredPlugin {
   version: string;
   dir: string;
   entry: string;
+  /** Declared in the manifest. Until capability approval exists, a folder install grants them all. */
+  capabilities: string[];
 }
 
 export async function discoverPlugins(pluginsDir: string): Promise<DiscoveredPlugin[]> {
@@ -32,6 +34,9 @@ export async function discoverPlugins(pluginsDir: string): Promise<DiscoveredPlu
         version: manifest.version,
         dir,
         entry: typeof manifest.entry === "string" ? manifest.entry : "index.ts",
+        capabilities: Array.isArray(manifest.capabilities)
+          ? manifest.capabilities.filter((c: unknown): c is string => typeof c === "string")
+          : [],
       });
     } catch (error) {
       console.error(`[plugin-host] ignoring ${dir}: ${(error as Error).message}`);

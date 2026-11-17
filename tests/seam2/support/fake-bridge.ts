@@ -45,6 +45,16 @@ export class FakeBridge {
     return { status: response.status, body: await response.json().catch(() => null) };
   }
 
+  /** Forwards a Komga event, as the Bridge does. */
+  async event(type: string, data: Record<string, unknown> = {}, secret?: string | null) {
+    const response = await this.request("/bridge/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, data }),
+    }, secret);
+    return { status: response.status, body: await response.json().catch(() => null) };
+  }
+
   async pluginSettings(pluginId: string) {
     const response = await this.request(`/api/plugin-settings?plugin=${encodeURIComponent(pluginId)}`);
     return { status: response.status, body: await response.json().catch(() => null) };

@@ -60,8 +60,10 @@ services:
       - komga
     environment:
       KOMGA_URL: http://komga:25600
+      BRIDGE_CONFIG: /plugin-bridge/bridge.json
     volumes:
       - library:/data
+      - bridge:/plugin-bridge:ro # to read the shared secret, standing in for the Plugin Host
 
 volumes:
   bridge:

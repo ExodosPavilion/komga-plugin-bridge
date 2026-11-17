@@ -22,4 +22,4 @@ We chose this for two reasons. First, code inside Komga's JVM cannot be isolated
 - The Bridge must fail safe: if the Plugin Host is down or slow, Komga carries on as stock Komga.
 - The Bridge has to be re-verified against each Komga release and stays inactive on any version it has not been verified against.
 - Users run a second container beside Komga, and Komga must restart to pick up a new Bridge.
-- How the Bridge gets loaded into the official Docker image is a separate, not yet proven decision.
+- How the Bridge gets loaded into the official Docker image is a separate decision, recorded in ADR-0003.

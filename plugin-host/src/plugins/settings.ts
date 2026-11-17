@@ -131,20 +131,20 @@ export class PluginData {
   }
 
   /** Answers the Plugin API calls a plugin makes from inside its process. */
-  async handleApiCall(pluginId: string, method: string, params: unknown): Promise<unknown> {
-    const p = (params ?? {}) as { key?: unknown; name?: unknown; value?: unknown };
+  async handleApiCall(pluginId: string, method: string, args: unknown[]): Promise<unknown> {
+    const [a, b] = args;
     switch (method) {
       case "settings.all":
         return await this.effective(pluginId);
       case "settings.get":
-        return (await this.effective(pluginId))[String(p.name)] ?? null;
+        return (await this.effective(pluginId))[String(a)] ?? null;
       case "storage.get":
-        return this.storageGet(pluginId, String(p.key));
+        return this.storageGet(pluginId, String(a));
       case "storage.set":
-        this.storageSet(pluginId, String(p.key), p.value);
+        this.storageSet(pluginId, String(a), b);
         return null;
       case "storage.delete":
-        this.storageDelete(pluginId, String(p.key));
+        this.storageDelete(pluginId, String(a));
         return null;
       case "storage.keys":
         return this.storageKeys(pluginId);

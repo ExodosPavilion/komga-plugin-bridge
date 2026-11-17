@@ -1,0 +1,6 @@
+{
+  "id": "komga-writer",
+  "version": "1.0.0",
+  "apiVersion": "1",
+  "capabilities": ["komga:read", "komga:write"]
+}

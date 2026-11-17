@@ -9,8 +9,8 @@ import type { InstalledPlugin } from "./store.ts";
 const runnerFile = fileURLToPath(new URL("../runner/runner.ts", import.meta.url));
 const runnerDir = join(runnerFile, "..");
 
-/** Answers a Plugin API call a plugin makes (settings, storage) from inside its process. */
-export type ApiCallHandler = (pluginId: string, method: string, params: unknown) => Promise<unknown>;
+/** Answers a Plugin API call a plugin makes from inside its process, e.g. "komga.getSeries" or "storage.get". */
+export type ApiCallHandler = (pluginId: string, method: string, args: unknown[]) => Promise<unknown>;
 
 export class PluginProcess {
   private child?: Deno.ChildProcess;
@@ -19,10 +19,11 @@ export class PluginProcess {
   private nextId = 1;
   private alive = false;
 
+  /** `onHostCall` answers the plugin's calls into the host (the Plugin API), e.g. "komga.getSeries". */
   constructor(
     private readonly plugin: InstalledPlugin,
     private readonly config: Config,
-    private readonly onApiCall?: (method: string, params: unknown) => Promise<unknown>,
+    private readonly onHostCall?: ApiCallHandler,
   ) {}
 
   get pid(): number | null {
@@ -84,17 +85,15 @@ export class PluginProcess {
     await this.child.status;
   }
 
-  private async answerApiCall(message: { api: number; method: string; params: unknown }) {
-    let reply: unknown;
+  private async answerHostCall(message: { call: number; method: string; args: unknown[] }) {
+    let reply: Record<string, unknown>;
     try {
-      if (!this.onApiCall) throw new Error("the Plugin API is not available");
-      reply = { apiReply: message.api, result: (await this.onApiCall(message.method, message.params)) ?? null };
+      if (!this.onHostCall) throw new Error(`${message.method} is not available`);
+      reply = { replyTo: message.call, result: (await this.onHostCall(this.plugin.id, message.method, message.args)) ?? null };
     } catch (error) {
-      reply = { apiReply: message.api, error: (error as Error).message };
+      reply = { replyTo: message.call, error: (error as Error).message };
     }
-    try {
-      await this.writer?.write(new TextEncoder().encode(JSON.stringify(reply) + "\n"));
-    } catch { /* the process went away */ }
+    await this.writer?.write(new TextEncoder().encode(JSON.stringify(reply) + "\n")).catch(() => {});
   }
 
   private async readLines(child: Deno.ChildProcess, ready: PromiseWithResolvers<void>) {
@@ -107,7 +106,7 @@ export class PluginProcess {
         buffer = buffer.slice(newline + 1);
         if (!line.trim()) continue;
         const message = JSON.parse(line);
-        if (message.api !== undefined) void this.answerApiCall(message);
+        if (message.call !== undefined) this.answerHostCall(message);
         else if (message.ready) ready.resolve();
         else if (message.id === undefined) ready.reject(new Error(message.error));
         else {

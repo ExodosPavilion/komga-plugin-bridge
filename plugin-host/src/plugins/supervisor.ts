@@ -10,17 +10,13 @@ export class PluginSupervisor {
   constructor(
     private readonly store: PluginStore,
     private readonly config: Config,
-    private readonly onApiCall?: ApiCallHandler,
+    private readonly onHostCall?: ApiCallHandler,
   ) {}
 
   async startEnabled(): Promise<void> {
     for (const plugin of this.store.list()) {
       if (!plugin.enabled) continue;
-      const process = new PluginProcess(
-        plugin,
-        this.config,
-        this.onApiCall && ((method, params) => this.onApiCall!(plugin.id, method, params)),
-      );
+      const process = new PluginProcess(plugin, this.config, this.onHostCall);
       this.processes.set(plugin.id, process);
       try {
         await process.start();

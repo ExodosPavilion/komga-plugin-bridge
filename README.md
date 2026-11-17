@@ -12,7 +12,8 @@ Adds plugin support to Komga. Not affiliated with the Komga project
 | `plugins/reference/` | The reference plugin (written against the package). |
 | `tests/seam1/` | Whole system in real containers, driven through Komga's address. |
 | `tests/seam2/` | The Plugin Host alone against a fake Komga and a fake Bridge. |
-| `prototypes/` | Throwaway prototypes, to be deleted. |
+| `examples/` | The compose example for admins; [docs/setup.md](docs/setup.md) is the guide. |
+| `tests/setup/` | Follows `docs/setup.md` against the compose example (`sh tests/setup/run.sh`). |
 
 Inside `plugin-host/src/`, each concern has its own module so tickets rarely touch the same file:
 
@@ -37,6 +38,7 @@ Both need only Docker. The seams are described in the spec (#1).
 ```sh
 sh tests/seam2/run.sh              # Plugin Host alone, fake Komga and Bridge; seconds
 sh tests/seam1/run.sh              # stock Komga + Plugin Host + fixture library; about a minute
+sh tests/setup/run.sh              # docs/setup.md followed step by step against examples/compose.yaml
 ```
 
 `seam2/run.sh` passes extra arguments to `deno test` (for example `--filter secret`). `seam1/run.sh` uses `docker compose` and removes only its own compose project (`komga-plugin-bridge-seam1`); `KEEP=1` leaves it up. On Windows with the Docker engine inside WSL, run the scripts inside that WSL distribution.
@@ -45,7 +47,7 @@ With a local Deno, `deno task test:seam2` runs seam 2 directly.
 
 ## Running it
 
-In your compose file, add the Plugin Host, and give Komga the shared volume and one variable. See `tests/seam1/compose.yaml` for a working example; the Komga lines marked `added` are all that changes. Start the Plugin Host once before Komga, so the Bridge is in the shared volume (a missing jar stops Komga from starting). Mount library folders into the Plugin Host read-only at the same paths as in Komga, and list them in `PLUGIN_HOST_LIBRARY_ROOTS`. Drop plugin folders into the `/plugins` volume and restart the Plugin Host.
+Admins: follow [docs/setup.md](docs/setup.md) (install, API key, upgrade, removal). In short: in your compose file, add the Plugin Host, and give Komga the shared volume and one variable. See `examples/compose.yaml` for the example; the Komga lines marked `added` are all that changes. Start the Plugin Host once before Komga, so the Bridge is in the shared volume (a missing jar stops Komga from starting). Mount library folders into the Plugin Host read-only at the same paths as in Komga, and list them in `PLUGIN_HOST_LIBRARY_ROOTS`. Drop plugin folders into the `/plugins` volume and restart the Plugin Host.
 
 ## Komga data for plugins
 

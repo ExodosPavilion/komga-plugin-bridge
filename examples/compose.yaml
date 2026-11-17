@@ -1,0 +1,47 @@
+# Komga with plugin support: your normal Komga service plus the Plugin Host.
+# Setup guide: docs/setup.md. Lines marked "added" are the only changes to the Komga service.
+name: komga
+
+services:
+  plugin-host:
+    # The Plugin Host image carries the Bridge. Use the image published for the release you want.
+    image: ghcr.io/exodospavilion/komga-plugin-bridge:latest
+    restart: unless-stopped
+    # Root, so it can write the Bridge into the shared volume whoever owns the volume's folder.
+    user: "0:0"
+    environment:
+      # Library folders as the Plugin Host sees them: the same paths as in the Komga service.
+      PLUGIN_HOST_LIBRARY_ROOTS: /data
+      # Komga's address and an admin API key (docs/setup.md, "Create the API key").
+      # Empty on first start; put the key in a .env file next to this file.
+      KOMGA_URL: http://komga:25600
+      KOMGA_API_KEY: ${KOMGA_API_KEY:-}
+    volumes:
+      - plugin-bridge:/plugin-bridge # the Bridge and its shared secret, read by Komga
+      - plugin-host-state:/state
+      - plugins:/plugins
+      # Your library folders, read-only, at the same paths as in the Komga service.
+      - /path/to/your/library:/data:ro
+    # No "ports": the Plugin Host is reached only by Komga, over this compose network.
+    healthcheck:
+      test: ["CMD", "deno", "eval", "await fetch('http://127.0.0.1:8080/healthz').then(r => Deno.exit(r.ok ? 0 : 1))"]
+      interval: 5s
+      retries: 20
+
+  komga:
+    image: gotson/komga:1.30.1
+    restart: unless-stopped
+    ports:
+      - "25600:25600"
+    environment:
+      JAVA_TOOL_OPTIONS: -javaagent:/plugin-bridge/bridge.jar # added
+    volumes:
+      - komga-config:/config
+      - /path/to/your/library:/data:ro
+      - plugin-bridge:/plugin-bridge:ro # added
+
+volumes:
+  plugin-bridge:
+  plugin-host-state:
+  plugins:
+  komga-config:

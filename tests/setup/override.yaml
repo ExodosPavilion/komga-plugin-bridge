@@ -1,0 +1,31 @@
+# Test-only changes to examples/compose.yaml: the image built from this repo, a fixture library
+# volume in place of the example's library path, no published port, and a driver that acts as
+# the admin through Komga's address. Used by tests/setup/run.sh.
+x-labels: &labels
+  komga-plugin-bridge: test
+
+services:
+  plugin-host:
+    image: ${SETUP_IMAGE:?start through run.sh}
+    labels: *labels
+    volumes:
+      - library:/data:ro
+  komga:
+    labels: *labels
+    ports: !override []
+    volumes:
+      - library:/data:ro
+  driver:
+    build:
+      context: .. # the repository root: run.sh sets the project directory to examples/
+      dockerfile: tests/seam1/Dockerfile
+    labels: *labels
+    user: "0"
+    profiles: [driver]
+    environment:
+      KOMGA_URL: http://komga:25600
+    volumes:
+      - library:/data
+
+volumes:
+  library:

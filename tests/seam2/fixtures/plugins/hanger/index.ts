@@ -3,4 +3,7 @@ export default {
   getSeriesMetadata() {
     return new Promise(() => {});
   },
+  getBookMetadata() {
+    return new Promise(() => {});
+  },
 };

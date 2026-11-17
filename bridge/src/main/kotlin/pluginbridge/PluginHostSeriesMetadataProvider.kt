@@ -37,7 +37,8 @@ class PluginHostSeriesMetadataProvider(
         SeriesMetadataPatch(
           text(metadata, "title"), null, null, text(metadata, "summary"), null,
           text(metadata, "publisher"), null, text(metadata, "language"),
-          genres, null, emptySet(),
+          // Komga applies any non-null set, so an empty one would wipe genres other providers set.
+          genres.ifEmpty { null }, null, emptySet(),
         )
       }
     } catch (e: Exception) {

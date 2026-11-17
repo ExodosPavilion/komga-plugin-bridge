@@ -9,6 +9,8 @@ import type { PluginStore } from "./store.ts";
 
 export class PluginSupervisor {
   private processes = new Map<string, PluginProcess>();
+  /** Processes of plugins disabled automatically, still being stopped; stopAll waits for them. */
+  private stopping = new Set<Promise<void>>();
 
   constructor(
     private readonly store: PluginStore,
@@ -66,7 +68,10 @@ export class PluginSupervisor {
       this.failures.markAutoDisabled(id, true);
       const process = this.processes.get(id);
       this.processes.delete(id);
-      process?.stop().catch(() => {});
+      if (process) {
+        const stopped = process.stop().catch(() => {}).finally(() => this.stopping.delete(stopped));
+        this.stopping.add(stopped);
+      }
     }
   }
 
@@ -123,5 +128,6 @@ export class PluginSupervisor {
   async stopAll(): Promise<void> {
     await Promise.all([...this.processes.values()].map((p) => p.stop()));
     this.processes.clear();
+    await Promise.all([...this.stopping]);
   }
 }

@@ -22,7 +22,7 @@ Inside `plugin-host/src/`, each concern has its own module so tickets rarely tou
 
 ## Plugin contract (so far)
 
-A plugin is a folder in the plugins directory with a `manifest.json` (`id`, `version`, optional `entry`, default `index.ts`) and a module whose default export has `getSeriesMetadata({ series })`, returning `{ title?, summary?, publisher?, language?, genres? }` or `null`. Each enabled plugin runs in its own Deno process that may only read its own folder and the library folders. Archives, capabilities, settings and manifest validation come in later tickets.
+A plugin is a folder in the plugins directory with a `manifest.json` (`id`, `version`, `apiVersion` (supported: see `plugins/manifest.ts`, currently `"1"`), optional `entry` (default `index.ts`), `capabilities`, `contributions`, `settings` fields). An invalid manifest or unsupported `apiVersion` is refused, with the reason listed at `GET /api/plugins/refused` and nothing recorded and a module whose default export has `getSeriesMetadata({ series })`, returning `{ title?, summary?, publisher?, language?, genres? }` or `null`. Each enabled plugin runs in its own Deno process that may only read its own folder and the library folders. Archives, capabilities, settings and manifest validation come in later tickets.
 
 ## Tests
 

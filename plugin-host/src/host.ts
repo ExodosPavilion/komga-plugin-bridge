@@ -20,13 +20,14 @@ export async function startPluginHost(config: Config): Promise<PluginHost> {
   await mkdir(config.dataDir, { recursive: true });
   const db = await openDatabase(join(config.dataDir, "plugin-host.sqlite"));
   const plugins = new PluginStore(db);
-  for (const plugin of await discoverPlugins(config.pluginsDir)) plugins.upsert(plugin);
+  const { found, refused } = await discoverPlugins(config.pluginsDir);
+  for (const plugin of found) plugins.upsert(plugin);
 
   const supervisor = new PluginSupervisor(plugins, config);
   await supervisor.startEnabled();
 
   const { secret } = await installBridge(config);
-  const ctx: HostContext = { config, db, plugins, supervisor };
+  const ctx: HostContext = { config, db, plugins, supervisor, refused };
   const server = await startHttpServer(ctx, secret);
   const url = `http://127.0.0.1:${server.port}`;
   console.log(`[plugin-host] listening on port ${server.port}`);

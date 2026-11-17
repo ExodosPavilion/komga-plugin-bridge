@@ -10,4 +10,6 @@ export interface HostContext {
   db: Database;
   plugins: PluginStore;
   supervisor: PluginSupervisor;
+  /** Plugins refused at install, with reasons. In memory only. */
+  refused: { folder: string; reason: string }[];
 }

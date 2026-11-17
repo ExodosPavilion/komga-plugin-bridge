@@ -116,14 +116,13 @@ Deno.test("a plugin project outside this repository checks and tests with the ru
 });
 
 Deno.test("the test runner package publishes on its own (dry run)", async () => {
-  // Everything it imports lies inside its folder; `--allow-slow-types` because the bundled Plugin
-  // Host is not written with explicit types for every export.
+  // Everything it imports lies inside its folder, and its public API has no slow types (JSR needs
+  // explicit types on everything a user can reach; deno publish refuses the package otherwise).
   const dry = await deno(
     join(repoRoot, "plugin-test-runner"),
     "publish",
     "--dry-run",
     "--allow-dirty",
-    "--allow-slow-types",
   );
   assert.equal(dry.code, 0, dry.output);
   assert.match(dry.output, /Dry run complete/);

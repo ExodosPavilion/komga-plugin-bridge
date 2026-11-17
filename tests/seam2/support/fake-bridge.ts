@@ -17,17 +17,24 @@ export interface BookRequest {
   libraryId: string;
 }
 
+/** The Plugin Host's answer: its HTTP status and its JSON body (null when there is none). */
+export interface BridgeReply {
+  status: number;
+  // deno-lint-ignore no-explicit-any -- the body's shape depends on the route; tests read its fields
+  body: any;
+}
+
 export class FakeBridge {
   constructor(private readonly config: BridgeConfigFile, private readonly baseUrl: string) {}
 
   /** A request with the right secret, or with `secret` replaced (null sends no secret at all). */
-  request(path: string, init: RequestInit = {}, secret: string | null = this.config.secret) {
+  request(path: string, init: RequestInit = {}, secret: string | null = this.config.secret): Promise<Response> {
     const headers = new Headers(init.headers);
     if (secret !== null) headers.set("Authorization", `Bearer ${secret}`);
     return fetch(`${this.baseUrl}${path}`, { ...init, headers });
   }
 
-  async seriesMetadata(series: SeriesRequest, secret?: string | null) {
+  async seriesMetadata(series: SeriesRequest, secret?: string | null): Promise<BridgeReply> {
     const response = await this.request("/bridge/series-metadata", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -36,7 +43,7 @@ export class FakeBridge {
     return { status: response.status, body: await response.json().catch(() => null) };
   }
 
-  async bookMetadata(book: BookRequest, secret?: string | null) {
+  async bookMetadata(book: BookRequest, secret?: string | null): Promise<BridgeReply> {
     const response = await this.request("/bridge/book-metadata", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -46,7 +53,7 @@ export class FakeBridge {
   }
 
   /** Forwards a Komga event, as the Bridge does. */
-  async event(type: string, data: Record<string, unknown> = {}, secret?: string | null) {
+  async event(type: string, data: Record<string, unknown> = {}, secret?: string | null): Promise<BridgeReply> {
     const response = await this.request("/bridge/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -55,12 +62,12 @@ export class FakeBridge {
     return { status: response.status, body: await response.json().catch(() => null) };
   }
 
-  async pluginSettings(pluginId: string) {
+  async pluginSettings(pluginId: string): Promise<BridgeReply> {
     const response = await this.request(`/api/plugin-settings?plugin=${encodeURIComponent(pluginId)}`);
     return { status: response.status, body: await response.json().catch(() => null) };
   }
 
-  async saveSettings(pluginId: string, values: Record<string, unknown>) {
+  async saveSettings(pluginId: string, values: Record<string, unknown>): Promise<BridgeReply> {
     const response = await this.request("/api/plugin-settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -81,7 +88,7 @@ export class FakeBridge {
     return await response.json();
   }
 
-  async enable(id: string) {
+  async enable(id: string): Promise<{ status: number }> {
     const response = await this.request("/api/plugins/enable", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

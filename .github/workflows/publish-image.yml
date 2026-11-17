@@ -1,0 +1,69 @@
+name: Publish the Plugin Host image
+
+# Push a tag such as v0.1.0 to build the Plugin Host image, with the Bridge compiled against the
+# newest Komga version on bridge/src/main/resources/supported-komga-versions.txt, and publish it to
+# GitHub's container registry as ghcr.io/<owner>/<repository> (ghcr.io/exodospavilion/komga-plugin-bridge
+# for this repository), the name examples/compose.yaml and docs/setup.md use. Tags: the version
+# (0.1.0 and 0.1) and, for a release without a "-" suffix, latest.
+#
+# Before the first publish (docs/setup.md, "Before the first image is published"): the repository's
+# Actions must be allowed to write packages (Settings, Actions, General, Workflow permissions: read
+# and write), and once the first image exists the package must be made public (the package's
+# settings on GitHub) so admins can pull it without signing in.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test the Plugin Host (seam 2)
+        run: sh tests/seam2/run.sh
+
+      - name: Choose the Komga version the Bridge is built against
+        id: komga
+        run: |
+          VERSION="$(grep -v '^#' bridge/src/main/resources/supported-komga-versions.txt | grep . | sort -V | tail -1)"
+          [ -n "$VERSION" ] || { echo "no supported Komga version listed"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Work out the image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.description=Plugin Host for Komga, with the Bridge built for Komga ${{ steps.komga.outputs.version }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: plugin-host/Dockerfile
+          build-args: KOMGA_IMAGE=gotson/komga:${{ steps.komga.outputs.version }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

@@ -18,7 +18,7 @@ The system has two parts: the Plugin Host, a second container where plugins run,
    - **Library folders are mounted read-only (`:ro`) at the same paths** in the Komga service and in the Plugin Host. Plugins see files at the paths Komga reports, so the paths must match. List each folder in `PLUGIN_HOST_LIBRARY_ROOTS` (comma separated).
    - The Komga service keeps its own settings. The only changes to it are the two lines marked `added`: the `plugin-bridge` volume (read-only) and the `JAVA_TOOL_OPTIONS` variable.
    - **If you already set `JAVA_TOOL_OPTIONS`, append to it** and do not replace it. Separate the options with a space: `JAVA_TOOL_OPTIONS: -Xmx2g -javaagent:/plugin-bridge/bridge.jar`. The variable applies to every Java process in the container; in the official image that is only Komga.
-   - Use a Plugin Host image that matches the Komga version (see "Komga versions" below).
+   - The Plugin Host image is `ghcr.io/exodospavilion/komga-plugin-bridge`, as in the example. Use a tag from a release (`0.1.0`, or `0.1`; `latest` follows the newest release). The Bridge inside it is built for the newest Komga version that release lists, so use a Plugin Host image that matches your Komga version (see "Komga versions" below).
 
 2. Start the Plugin Host, then Komga:
 
@@ -30,6 +30,16 @@ The system has two parts: the Plugin Host, a second container where plugins run,
    On later starts the order matters only when the shared volume is empty (a new machine, a deleted volume). Keeping `restart: unless-stopped` on both is fine once the Bridge is in place.
 
 3. Open Komga and create your admin account if you have not already.
+
+## Before the first image is published
+
+The image above is built and pushed by `.github/workflows/publish-image.yml` when a version tag (`v0.1.0`) is pushed. Until the first such tag has been pushed, `ghcr.io/exodospavilion/komga-plugin-bridge` does not exist and `docker compose pull` fails. To publish it (maintainers):
+
+1. In the repository's Settings, Actions, General, set "Workflow permissions" to read and write, so the workflow may write packages.
+2. Push a tag: `git tag v0.1.0 && git push origin v0.1.0`. The workflow tests the Plugin Host, builds the image with the Bridge for the newest Komga version on `supported-komga-versions.txt`, and pushes it.
+3. Packages published this way are private at first. Open the package on GitHub (the repository's Packages), Package settings, and change its visibility to public, so admins can pull it without signing in. Do this once.
+
+Until then, build the image yourself from a clone of this repository: `docker build -f plugin-host/Dockerfile -t ghcr.io/exodospavilion/komga-plugin-bridge:latest .`, which `sh tests/setup/run.sh` also does.
 
 ## Create the API key
 

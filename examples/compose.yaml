@@ -4,7 +4,9 @@ name: komga
 
 services:
   plugin-host:
-    # The Plugin Host image carries the Bridge. Use the image published for the release you want.
+    # The Plugin Host image carries the Bridge. Use the image published for the release you want
+    # (a tag such as 0.1.0 instead of latest). It exists only once a release tag has been
+    # published: docs/setup.md, "Before the first image is published".
     image: ghcr.io/exodospavilion/komga-plugin-bridge:latest
     restart: unless-stopped
     # Root, so it can write the Bridge into the shared volume whoever owns the volume's folder.

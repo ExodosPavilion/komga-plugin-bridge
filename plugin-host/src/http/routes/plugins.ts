@@ -10,6 +10,8 @@ export function register(router: Router) {
         enabled: plugin.enabled,
         running: ctx.supervisor.isRunning(plugin.id),
         pid: ctx.supervisor.pid(plugin.id),
+        autoDisabled: ctx.failures.isAutoDisabled(plugin.id),
+        consecutiveFailures: ctx.failures.consecutiveFailures(plugin.id),
       })),
     ));
 }

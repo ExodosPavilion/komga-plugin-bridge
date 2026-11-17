@@ -15,6 +15,8 @@ export interface Config {
   libraryRoots: string[];
   /** Time limit for one call to a plugin. */
   callTimeoutMs: number;
+  /** Consecutive failures after which a plugin is disabled automatically. */
+  failureThreshold: number;
   /** The address the Bridge uses to reach this host, from inside Komga's container. */
   hostUrl: string;
   /** Komga's REST API, used on behalf of plugins. Optional until a plugin needs it. */
@@ -35,6 +37,7 @@ export function configFromEnv(env: Record<string, string | undefined> = Deno.env
     bridgeJar: env.PLUGIN_HOST_BRIDGE_JAR ?? "/opt/bridge/bridge.jar",
     libraryRoots: list(env.PLUGIN_HOST_LIBRARY_ROOTS, ["/data"]),
     callTimeoutMs: Number(env.PLUGIN_HOST_CALL_TIMEOUT_MS ?? 8000),
+    failureThreshold: Number(env.PLUGIN_HOST_FAILURE_THRESHOLD ?? 3),
     hostUrl: env.PLUGIN_HOST_URL ?? "http://plugin-host:8080",
     komgaUrl: env.KOMGA_URL || undefined,
     komgaApiKey: env.KOMGA_API_KEY || undefined,

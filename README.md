@@ -40,3 +40,7 @@ With a local Deno, `deno task test:seam2` runs seam 2 directly.
 ## Running it
 
 In your compose file, add the Plugin Host, and give Komga the shared volume and one variable. See `tests/seam1/compose.yaml` for a working example; the Komga lines marked `added` are all that changes. Start the Plugin Host once before Komga, so the Bridge is in the shared volume (a missing jar stops Komga from starting). Mount library folders into the Plugin Host read-only at the same paths as in Komga, and list them in `PLUGIN_HOST_LIBRARY_ROOTS`. Drop plugin folders into the `/plugins` volume and restart the Plugin Host.
+
+## Failures
+
+Every plugin call has a time limit (`PLUGIN_HOST_CALL_TIMEOUT_MS`, default 8000). Each failure (timeout, crash, error) is recorded in the host database (`GET /api/failures?plugin=<id>`). After `PLUGIN_HOST_FAILURE_THRESHOLD` consecutive failures (default 3) the plugin is disabled; a success resets the count. Re-enable with `POST /api/plugins/enable {"id": "..."}`.

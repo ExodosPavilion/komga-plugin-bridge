@@ -34,6 +34,7 @@ export interface TestHostOptions {
   /** Plugins to drop into the plugins folder: a fixture name, or "reference" for the real one. */
   plugins?: string[];
   callTimeoutMs?: number;
+  failureThreshold?: number;
   komgaUrl?: string;
   komgaApiKey?: string;
 }
@@ -63,6 +64,7 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
     bridgeJar,
     libraryRoots: [dirs.library],
     callTimeoutMs: options.callTimeoutMs ?? 5000,
+    failureThreshold: options.failureThreshold ?? 3,
     hostUrl: "http://plugin-host.test:8080",
     komgaUrl: options.komgaUrl,
     komgaApiKey: options.komgaApiKey,

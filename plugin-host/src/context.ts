@@ -2,6 +2,7 @@
 // part behind its own module.
 import type { Config } from "./config.ts";
 import type { Database } from "./db/database.ts";
+import type { FailureLog } from "./plugins/failures.ts";
 import type { PluginSupervisor } from "./plugins/supervisor.ts";
 import type { PluginStore } from "./plugins/store.ts";
 
@@ -10,4 +11,5 @@ export interface HostContext {
   db: Database;
   plugins: PluginStore;
   supervisor: PluginSupervisor;
+  failures: FailureLog;
 }

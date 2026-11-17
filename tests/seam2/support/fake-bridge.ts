@@ -35,8 +35,30 @@ export class FakeBridge {
     return response.status;
   }
 
+  async failures(plugin: string): Promise<{ plugin: string; at: string; kind: string; reason: string }[]> {
+    const response = await this.request(`/api/failures?plugin=${encodeURIComponent(plugin)}`);
+    return await response.json();
+  }
+
+  async enable(id: string) {
+    const response = await this.request("/api/plugins/enable", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    await response.body?.cancel();
+    return { status: response.status };
+  }
+
   async plugins(): Promise<
-    { id: string; version: string; enabled: boolean; running: boolean; pid: number | null }[]
+    {
+      id: string;
+      version: string;
+      enabled: boolean;
+      running: boolean;
+      pid: number | null;
+      autoDisabled?: boolean;
+    }[]
   > {
     const response = await this.request("/api/plugins");
     return await response.json();

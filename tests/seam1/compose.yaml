@@ -50,6 +50,19 @@ services:
       - library:/data:ro
       - bridge:/plugin-bridge:ro # added
 
+  # Stock Komga whose Bridge supported list is replaced by one this Komga is not on (test only).
+  komga-unsupported:
+    image: gotson/komga:1.30.1
+    labels: *labels
+    depends_on:
+      plugin-host:
+        condition: service_healthy
+    environment:
+      JAVA_TOOL_OPTIONS: -javaagent:/plugin-bridge/bridge.jar -Dplugin-bridge.supported-versions=9.9.9
+    volumes:
+      - library:/data:ro
+      - bridge:/plugin-bridge:ro
+
   tests:
     build:
       context: ../..
@@ -58,10 +71,13 @@ services:
     user: "0"
     depends_on:
       - komga
+      - komga-unsupported
     environment:
       KOMGA_URL: http://komga:25600
+      KOMGA_UNSUPPORTED_URL: http://komga-unsupported:25600
     volumes:
       - library:/data
+      - bridge:/plugin-bridge:ro
 
 volumes:
   bridge:

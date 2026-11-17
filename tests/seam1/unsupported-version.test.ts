@@ -62,6 +62,13 @@ Deno.test("on an unsupported Komga version the Bridge is inactive, Komga is stoc
   assert.match(inactive.reason, /not on the Bridge's supported list/);
   assert.match(inactive.reason, /9\.9\.9/);
   assert.match(inactive.komgaVersion, /^\d+\.\d+\.\d+/);
+  // Every Bridge auto-configuration is off, including the Plugin Host call gate: with the right
+  // secret the route does not answer as the Bridge would.
+  const config = JSON.parse(await Deno.readTextFile("/plugin-bridge/bridge.json"));
+  const ping = await fetch(`${UNSUPPORTED_URL}/plugin-bridge/host/ping`, { headers: { Authorization: `Bearer ${config.secret}` } });
+  await ping.body?.cancel();
+  assert.notEqual(ping.status, 200);
+
   // The supported Komga reported itself active.
   assert.ok(reports.some((r: { active: boolean }) => r.active));
 });

@@ -20,6 +20,10 @@ Inside `plugin-host/src/`, each concern has its own module so tickets rarely tou
 - `bridge/`: placing the Bridge and shared secret in the volume shared with Komga.
 - `context.ts`, `host.ts`: what route modules receive, and the wiring.
 
+## Adding to the Bridge: use the version gate
+
+The Bridge is inactive on a Komga version not listed in `bridge/src/main/resources/supported-komga-versions.txt` (the one place to update). The gate is `BridgeGateFilter` (`BridgeGate.kt`), an `AutoConfigurationImportFilter` that keeps every auto-configuration in package `pluginbridge` from loading on an unsupported version, so none of their beans or classes exist. **New Bridge features must be auto-configurations in package `pluginbridge`, listed in `AutoConfiguration.imports`; do not register beans any other way.** Only `BridgeStatusAutoConfiguration` is exempt: it logs and reports the inactive state and reason (`POST /bridge/status`, read at `GET /api/bridge-status`), and may use only Spring and the JDK, never Komga's classes. For a non-bean check call `BridgeGate.evaluate(environment).active`.
+
 ## Plugin contract (so far)
 
 A plugin is a folder in the plugins directory with a `manifest.json` (`id`, `version`, `apiVersion` (supported: see `plugins/manifest.ts`, currently `"1"`), optional `entry` (default `index.ts`), `capabilities`, `contributions`, `settings` fields). An invalid manifest or unsupported `apiVersion` is refused, with the reason listed at `GET /api/plugins/refused` and nothing recorded and a module whose default export has `getSeriesMetadata({ series })`, returning `{ title?, summary?, publisher?, language?, genres? }` or `null`. Each enabled plugin runs in its own Deno process that may only read its own folder plus what its approved `capabilities` (manifest array of strings) allow: `network`, and `file-read:<library folder>` (or `file-read:*` for every configured library); `file-write:<library>` is in the model but never granted yet; `komga:read` and `komga:write` gate the Komga data API. One store of approved capabilities (`plugin_capabilities`) feeds both the Deno permissions and the Komga-data checks; until the approval flow exists, a folder install is approved for what it declares (`CapabilityStore.approveDeclared`). Archives come in later tickets.
@@ -52,3 +56,7 @@ Every plugin call has a time limit (`PLUGIN_HOST_CALL_TIMEOUT_MS`, default 8000)
 ## Plugin API (what a hook receives)
 
 Every hook is called as `hook(params, api)`, with `api.settings` (`all()`, `get(name)`), `api.storage` (`get`, `set`, `delete`, `keys`) and `api.komga` (see above). On the wire, the plugin sends `{call, method: "settings.all" | "storage.get" | "komga.getSeries" | ..., args: [...]}` on stdout and the host answers `{replyTo, result | error}` on stdin. The host routes `komga.*` to the Komga data layer (checked against approved capabilities) and the rest to settings and storage. Failures are counted at the hook call, so an API error a plugin lets propagate counts once.
+
+## Shared secret
+
+The Plugin Host generates a secret at first start (kept in its own `/state`, reused later) and writes it to `bridge.json` beside the Bridge jar. Every Plugin Host route except `public` ones needs `Authorization: Bearer <secret>`. The other way, the Bridge answers calls under `/plugin-bridge/host/` (outside Komga's own security) only with the same header (`HostCallFilter`); `GET /plugin-bridge/host/ping` is the liveness check. Later features add handlers behind that filter. No admin configuration is needed.

@@ -15,6 +15,11 @@ export interface Config {
   libraryRoots: string[];
   /** Time limit for one call to a plugin. */
   callTimeoutMs: number;
+  /**
+   * Time limit for each scan-time call from the Bridge, written into bridge.json. Default: the
+   * plugin call limit plus two seconds, so the host's own limit normally decides.
+   */
+  bridgeTimeoutMs?: number;
   /** Consecutive failures after which a plugin is disabled automatically. */
   failureThreshold: number;
   /** The address the Bridge uses to reach this host, from inside Komga's container. */
@@ -37,6 +42,9 @@ export function configFromEnv(env: Record<string, string | undefined> = Deno.env
     bridgeJar: env.PLUGIN_HOST_BRIDGE_JAR ?? "/opt/bridge/bridge.jar",
     libraryRoots: list(env.PLUGIN_HOST_LIBRARY_ROOTS, ["/data"]),
     callTimeoutMs: Number(env.PLUGIN_HOST_CALL_TIMEOUT_MS ?? 8000),
+    bridgeTimeoutMs: env.PLUGIN_HOST_BRIDGE_TIMEOUT_MS
+      ? Number(env.PLUGIN_HOST_BRIDGE_TIMEOUT_MS)
+      : undefined,
     failureThreshold: Number(env.PLUGIN_HOST_FAILURE_THRESHOLD ?? 3),
     hostUrl: env.PLUGIN_HOST_URL ?? "http://plugin-host:8080",
     komgaUrl: env.KOMGA_URL || undefined,

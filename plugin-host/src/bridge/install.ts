@@ -23,7 +23,7 @@ export async function installBridge(config: Config): Promise<BridgeConnection> {
     pluginHostUrl: config.hostUrl,
     secret,
     // The Bridge gives up a little after the host would have, so the host's own limit decides.
-    timeoutMillis: config.callTimeoutMs + 2000,
+    timeoutMillis: config.bridgeTimeoutMs ?? config.callTimeoutMs + 2000,
   };
   const jsonTmp = join(config.bridgeDir, ".bridge.json.tmp");
   await writeFile(jsonTmp, JSON.stringify(connection, null, 2) + "\n", { mode: 0o644 });

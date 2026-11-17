@@ -39,5 +39,6 @@ barely change. A new hook group is an interface in its own file, added to the `e
 
 ## Publishing
 
-The package is published to JSR from `plugin-api/`: `deno publish` (see the repository's
-`docs/` for the one-time setup). `deno publish --dry-run` checks it without publishing.
+The package is published to JSR by the repository's `publish-packages.yml` workflow: bump
+`version` in `deno.json` and push to `main`. `deno publish --dry-run` checks it without
+publishing.

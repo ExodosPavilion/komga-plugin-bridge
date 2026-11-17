@@ -1,0 +1,66 @@
+name: Publish the Deno packages
+
+# Publishes @komga-plugin-bridge/plugin-api (plugin-api/) and @komga-plugin-bridge/test-runner
+# (plugin-test-runner/) to JSR. To release one, bump "version" in its deno.json and push to main.
+# A version JSR already has is skipped, so pushes that change no version publish nothing.
+#
+# The test runner carries a copy of the Plugin Host and the seam 2 stand-ins (its vendor/ folder,
+# built by `deno task bundle:runner`). A change to plugin-host/src or tests/seam2/support reaches
+# plugin authors only when the runner's version is bumped.
+#
+# Authentication is GitHub's OIDC token, with no secret to store. It works once each package is
+# linked to this repository on jsr.io: the package's Settings, "GitHub Repository".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - plugin-api/**
+      - plugin-test-runner/**
+      - plugin-host/src/**
+      - tests/seam2/support/**
+      - .github/workflows/publish-packages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # JSR checks this token to confirm the publish comes from this repository
+
+concurrency:
+  group: publish-packages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test the Plugin Host and the test runner (seam 2)
+        run: sh tests/seam2/run.sh
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.6 # the version the repository's Docker images pin
+
+      - name: Build the test runner's vendor folder
+        run: deno task bundle:runner
+
+      - name: Publish each package whose version JSR does not have yet
+        run: |
+          set -eu
+          meta="$RUNNER_TEMP/jsr-meta.json" # outside the checkout: deno publish refuses a dirty tree
+          for dir in plugin-api plugin-test-runner; do
+            name="$(jq -r .name "$dir/deno.json")"
+            version="$(jq -r .version "$dir/deno.json")"
+            # jsr.io/<name>/meta.json lists the published versions; a 404 means none yet.
+            status="$(curl -s -o "$meta" -w '%{http_code}' "https://jsr.io/$name/meta.json")"
+            if [ "$status" = 200 ] && jq -e --arg v "$version" '.versions | has($v)' "$meta" >/dev/null; then
+              echo "$name@$version is already on JSR; skipping"
+              continue
+            fi
+            [ "$status" = 200 ] || [ "$status" = 404 ] || { echo "JSR answered $status for $name"; exit 1; }
+            echo "Publishing $name@$version"
+            (cd "$dir" && deno publish)
+          done

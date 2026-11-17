@@ -68,19 +68,35 @@ export class PluginSupervisor {
     return this.processes.get(id)?.pid ?? null;
   }
 
+  /** Ids of the plugins that are running now, in a stable order. */
+  runningIds(): string[] {
+    return [...this.processes.entries()].filter(([, p]) => p.running).map(([id]) => id).sort();
+  }
+
+  /**
+   * Calls one running plugin within the time limit, recording success or failure like any other
+   * call. Returns null when the plugin is not running or the call failed.
+   */
+  async callPlugin(pluginId: string, method: string, params: unknown): Promise<{ result: unknown } | null> {
+    const process = this.processes.get(pluginId);
+    if (!process) return null;
+    try {
+      const result = await process.call(method, params, this.config.callTimeoutMs);
+      this.failures.recordSuccess(pluginId);
+      return { result };
+    } catch (error) {
+      const kind = error instanceof PluginCallError ? error.kind : "error";
+      this.fail(pluginId, kind, `${method}: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
   /** Calls every running plugin; a plugin that fails or is slow is skipped, never fatal. */
   async callAll(method: string, params: unknown): Promise<{ pluginId: string; result: unknown }[]> {
     const settled = await Promise.all(
-      [...this.processes.entries()].map(async ([pluginId, process]) => {
-        try {
-          const result = await process.call(method, params, this.config.callTimeoutMs);
-          this.failures.recordSuccess(pluginId);
-          return { pluginId, result };
-        } catch (error) {
-          const kind = error instanceof PluginCallError ? error.kind : "error";
-          this.fail(pluginId, kind, `${method}: ${(error as Error).message}`);
-          return null;
-        }
+      [...this.processes.keys()].map(async (pluginId) => {
+        const answer = await this.callPlugin(pluginId, method, params);
+        return answer && { pluginId, result: answer.result };
       }),
     );
     return settled.filter((r): r is { pluginId: string; result: unknown } => r !== null)

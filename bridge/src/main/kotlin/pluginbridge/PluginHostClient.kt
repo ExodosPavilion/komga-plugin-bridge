@@ -25,17 +25,31 @@ class PluginHostClient(
   fun post(
     path: String,
     body: Any,
+  ): JsonNode? = exchange(path, body)
+
+  /** GETs from the Plugin Host and returns the JSON answer, or null on any failure. */
+  fun get(path: String): JsonNode? = exchange(path, null)
+
+  private fun exchange(
+    path: String,
+    body: Any?,
   ): JsonNode? =
     try {
       val config = mapper.readTree(Files.readAllBytes(configFile))
-      val request =
+      val builder =
         HttpRequest
           .newBuilder(URI.create(config.get("pluginHostUrl").asText() + path))
           .timeout(Duration.ofMillis(config.path("timeoutMillis").asLong(10_000)))
           .header("Authorization", "Bearer " + config.get("secret").asText())
-          .header("Content-Type", "application/json")
-          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
-          .build()
+      val request =
+        if (body == null) {
+          builder.GET().build()
+        } else {
+          builder
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
+            .build()
+        }
       val response = http.send(request, HttpResponse.BodyHandlers.ofByteArray())
       if (response.statusCode() != 200) {
         println("[plugin-bridge] plugin host answered ${response.statusCode()} for $path")

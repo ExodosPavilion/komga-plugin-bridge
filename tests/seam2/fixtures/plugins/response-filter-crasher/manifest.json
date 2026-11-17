@@ -1,0 +1,6 @@
+{
+  "id": "response-filter-crasher",
+  "version": "0.1.0",
+  "apiVersion": "1",
+  "contributions": [{ "type": "response-filter", "routes": ["/api/v1/libraries"] }]
+}

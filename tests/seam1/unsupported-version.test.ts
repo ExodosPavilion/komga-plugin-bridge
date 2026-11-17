@@ -75,6 +75,20 @@ Deno.test("on an unsupported Komga version the Bridge is inactive, Komga is stoc
   });
   assert.doesNotMatch(await authed.text(), /"ok":\s*true/);
 
+  // Response filtering is gated too: the me-filter plugin is installed, and on the supported Komga
+  // it changes what the web UI receives, but here a web-UI-style request gets Komga's own data.
+  const me = await unsupported("/api/v2/users/me");
+  await me.body?.cancel();
+  const cookie = me.headers.getSetCookie().find((c) => c.startsWith("KOMGA-SESSION="))?.split(";")[0];
+  assert.ok(cookie, "Komga should open a session on login");
+  await new Promise((resolve) => setTimeout(resolve, 6000)); // longer than the Bridge needs to learn filter routes
+  const asWebUi = await fetch(`${UNSUPPORTED_URL}/api/v2/users/me`, {
+    headers: { Cookie: cookie, "X-Requested-With": "XMLHttpRequest" },
+  });
+  const stockMe = await asWebUi.json();
+  assert.equal(stockMe.email, ADMIN.email);
+  assert.equal(stockMe.filteredBy, undefined);
+
   // The supported Komga reported itself active.
   assert.ok(reports.some((r: { active: boolean }) => r.active));
 });

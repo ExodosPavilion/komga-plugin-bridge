@@ -2,9 +2,10 @@
 // (table plugin_capabilities) is read by both enforcement paths:
 //   - the Deno-permission mapping (network, file-read:<library>) when a plugin process starts
 //   - the Komga-data checks (komga:read, komga:write) when a plugin calls the Plugin API
-// Checks always read the approved set, never the manifest. The only place approval happens today
-// is CapabilityStore.approveDeclared (folder install grants what the manifest declares); the
-// approval flow (#17) replaces that single call.
+// Checks always read the approved set, never the manifest. The manifest's declarations are
+// recorded by CapabilityStore.syncDeclared (install, upgrade, start) and become approved only
+// through CapabilityStore.approve, the admin's action (POST /api/plugins/approve). A plugin with
+// declared-but-unapproved capabilities is "pending" and cannot be enabled.
 //
 // A capability is a string in a plugin's manifest:
 //   "network"              the plugin may reach the network
@@ -41,17 +42,53 @@ export class CapabilityStore {
     return this.approved(pluginId).includes(capability);
   }
 
-  /** Folder install: approves what the manifest declares, and nothing else. The single auto-grant point. */
-  async approveDeclared(plugin: InstalledPlugin): Promise<void> {
+  /** What the installed manifest declares, as last read by syncDeclared. */
+  declared(pluginId: string): string[] {
+    return this.db.prepare("SELECT capability FROM plugin_declared_capabilities WHERE plugin_id = ? ORDER BY capability")
+      .all(pluginId).map((row) => String(row.capability));
+  }
+
+  /** Declared capabilities that no admin has approved yet. A plugin with any cannot be enabled. */
+  pending(pluginId: string): string[] {
+    const approved = new Set(this.approved(pluginId));
+    return this.declared(pluginId).filter((capability) => !approved.has(capability));
+  }
+
+  /**
+   * Reads what the plugin's manifest declares (install, upgrade or start). Nothing is approved
+   * here: approvals the manifest no longer declares are dropped, new declarations become pending.
+   */
+  async syncDeclared(plugin: InstalledPlugin): Promise<void> {
     let declared: unknown = [];
     try {
       declared = JSON.parse(await readFile(join(plugin.dir, "manifest.json"), "utf8")).capabilities ?? [];
     } catch { /* an unreadable manifest declares nothing */ }
     const list = Array.isArray(declared) ? declared.filter((c): c is string => typeof c === "string") : [];
-    this.db.prepare("DELETE FROM plugin_capabilities WHERE plugin_id = ?").run(plugin.id);
-    for (const capability of list) {
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare("DELETE FROM plugin_declared_capabilities WHERE plugin_id = ?").run(plugin.id);
+      for (const capability of list) {
+        this.db.prepare("INSERT OR IGNORE INTO plugin_declared_capabilities (plugin_id, capability) VALUES (?, ?)")
+          .run(plugin.id, capability);
+      }
+      for (const capability of this.approved(plugin.id)) {
+        if (!list.includes(capability)) {
+          this.db.prepare("DELETE FROM plugin_capabilities WHERE plugin_id = ? AND capability = ?")
+            .run(plugin.id, capability);
+        }
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  /** The admin's approval: grants exactly what the plugin declares. The only place a capability is granted. */
+  approve(pluginId: string): void {
+    for (const capability of this.declared(pluginId)) {
       this.db.prepare("INSERT OR IGNORE INTO plugin_capabilities (plugin_id, capability) VALUES (?, ?)")
-        .run(plugin.id, capability);
+        .run(pluginId, capability);
     }
   }
 }

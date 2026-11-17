@@ -30,7 +30,11 @@ export async function startPluginHost(config: Config): Promise<PluginHost> {
   const failures = new FailureLog(db);
   const pluginData = new PluginData(db, plugins);
   const capabilities = new CapabilityStore(db);
-  for (const plugin of plugins.list()) await capabilities.approveDeclared(plugin);
+  // Nothing is approved here: a plugin declaring capabilities nobody approved waits, disabled.
+  for (const plugin of plugins.list()) {
+    await capabilities.syncDeclared(plugin);
+    if (capabilities.pending(plugin.id).length > 0) plugins.setEnabled(plugin.id, false);
+  }
   const komga = new KomgaData(config, capabilities);
 
   // The Plugin API: every call a plugin makes into the host ("settings.*", "storage.*", "komga.*")

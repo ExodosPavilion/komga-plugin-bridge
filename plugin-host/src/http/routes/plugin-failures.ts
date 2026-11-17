@@ -1,3 +1,4 @@
+import { CapabilitiesNotApprovedError } from "../../plugins/supervisor.ts";
 import type { Router } from "../router.ts";
 
 /** Failure records and re-enabling a plugin. The Plugin Manager builds on these. */
@@ -13,6 +14,13 @@ export function register(router: Router) {
   router.post("/api/plugins/enable", async (req, ctx) => {
     const body = await req.json().catch(() => null);
     if (typeof body?.id !== "string") return new Response(null, { status: 400 });
-    return new Response(null, { status: (await ctx.supervisor.enable(body.id)) ? 200 : 404 });
+    try {
+      return new Response(null, { status: (await ctx.supervisor.enable(body.id)) ? 200 : 404 });
+    } catch (error) {
+      if (error instanceof CapabilitiesNotApprovedError) {
+        return Response.json({ error: error.message, pending: error.pending }, { status: 409 });
+      }
+      throw error;
+    }
   });
 }

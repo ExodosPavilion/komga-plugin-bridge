@@ -43,6 +43,27 @@ export async function startedAndClaimed(): Promise<void> {
     }
     return true;
   });
+  await approveWaitingPlugins();
+}
+
+/**
+ * Plugins dropped into the plugins folder wait, disabled, for an admin to approve their
+ * capabilities. Does what the admin does in the Plugin Manager: approves and enables them.
+ */
+export async function approveWaitingPlugins(): Promise<void> {
+  const manager = "/api/v1/plugin-manager/api";
+  const headers = { "X-Requested-With": "XMLHttpRequest", "Content-Type": "application/json" };
+  const list: { id: string; pending: string[] }[] = await (await api(`${manager}/plugin-capabilities`)).json();
+  for (const plugin of list.filter((p) => p.pending.length > 0)) {
+    for (const action of ["approve", "enable"]) {
+      const response = await api(`${manager}/plugins/${action}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ id: plugin.id }),
+      });
+      await response.body?.cancel();
+    }
+  }
 }
 
 export async function createLibrary(name: string, root: string): Promise<string> {

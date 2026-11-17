@@ -47,6 +47,16 @@ export class PluginSupervisor {
     return true;
   }
 
+  /** Admin action: stops a plugin and keeps it off, with its settings and storage kept. */
+  async disable(id: string): Promise<boolean> {
+    if (!this.store.get(id)) return false;
+    this.store.setEnabled(id, false);
+    const process = this.processes.get(id);
+    this.processes.delete(id);
+    await process?.stop();
+    return true;
+  }
+
   private fail(id: string, kind: FailureKind, reason: string): void {
     console.error(`[plugin-host] plugin ${id} ${kind}: ${reason}`);
     const count = this.failures.recordFailure(id, kind, reason);

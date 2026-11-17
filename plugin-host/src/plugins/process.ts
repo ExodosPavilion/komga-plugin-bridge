@@ -1,10 +1,12 @@
-// One plugin, one Deno process. The process is started with no permissions beyond reading its
-// own folder, the runner, and the library folders: no network, no environment, no writes, no
-// subprocesses. (Per-capability and per-library permissions are later tickets.)
+// One plugin, one Deno process. The process is started with only what its capabilities allow:
+// reading its own folder and the runner always; reading the library folders it holds file-read
+// for; the network if it holds the network capability. Never environment, writes or
+// subprocesses. Deno enforces this, not the plugin's good behaviour.
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Config } from "../config.ts";
 import { PluginCallError } from "./failures.ts";
+import { resolvePermissions } from "./capabilities.ts";
 import type { InstalledPlugin } from "./store.ts";
 
 const runnerFile = fileURLToPath(new URL("../runner/runner.ts", import.meta.url));
@@ -24,6 +26,7 @@ export class PluginProcess {
   constructor(
     private readonly plugin: InstalledPlugin,
     private readonly config: Config,
+    private readonly approvedCapabilities: () => string[],
     private readonly onHostCall?: ApiCallHandler,
   ) {}
 
@@ -36,9 +39,17 @@ export class PluginProcess {
   }
 
   async start(): Promise<void> {
-    const readable = [this.plugin.dir, runnerDir, ...this.config.libraryRoots].join(",");
+    const { read, network } = resolvePermissions(this.approvedCapabilities(), this.config.libraryRoots);
+    const readable = [this.plugin.dir, runnerDir, ...read].join(",");
     const command = new Deno.Command(this.config.denoPath, {
-      args: ["run", "--no-prompt", `--allow-read=${readable}`, runnerFile, join(this.plugin.dir, this.plugin.entry)],
+      args: [
+        "run",
+        "--no-prompt",
+        `--allow-read=${readable}`,
+        ...(network ? ["--allow-net"] : []),
+        runnerFile,
+        join(this.plugin.dir, this.plugin.entry),
+      ],
       stdin: "piped",
       stdout: "piped",
       stderr: "inherit",

@@ -5,6 +5,7 @@ import type { Database } from "./db/database.ts";
 import type { FailureLog } from "./plugins/failures.ts";
 import type { PluginSupervisor } from "./plugins/supervisor.ts";
 import type { PluginStore } from "./plugins/store.ts";
+import type { CapabilityStore } from "./plugins/capabilities.ts";
 import type { PluginData } from "./plugins/settings.ts";
 
 export interface HostContext {
@@ -16,4 +17,6 @@ export interface HostContext {
   /** Plugins refused at install, with reasons. In memory only. */
   refused: { folder: string; reason: string }[];
   failures: FailureLog;
+  /** The one store of approved capabilities. */
+  capabilities: CapabilityStore;
 }

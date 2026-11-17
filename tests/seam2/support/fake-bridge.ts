@@ -72,6 +72,7 @@ export class FakeBridge {
       running: boolean;
       pid: number | null;
       autoDisabled?: boolean;
+      capabilities: { capability: string; granted: boolean }[];
     }[]
   > {
     const response = await this.request("/api/plugins");

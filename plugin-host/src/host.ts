@@ -35,14 +35,14 @@ export async function startPluginHost(config: Config): Promise<PluginHost> {
 
   // The Plugin API: every call a plugin makes into the host ("settings.*", "storage.*", "komga.*")
   // arrives here, from that plugin's process.
-  const supervisor = new PluginSupervisor(plugins, config, failures, (pluginId, method, args) => {
+  const supervisor = new PluginSupervisor(plugins, config, failures, capabilities, (pluginId, method, args) => {
     if (method.startsWith("komga.")) return komga.call(pluginId, method.slice("komga.".length), args);
     return pluginData.handleApiCall(pluginId, method, args);
   });
   await supervisor.startEnabled();
 
   const { secret } = await installBridge(config);
-  const ctx: HostContext = { config, db, plugins, pluginData, supervisor, refused, failures };
+  const ctx: HostContext = { config, db, plugins, pluginData, supervisor, refused, failures, capabilities };
   const server = await startHttpServer(ctx, secret);
   const url = `http://127.0.0.1:${server.port}`;
   console.log(`[plugin-host] listening on port ${server.port}`);

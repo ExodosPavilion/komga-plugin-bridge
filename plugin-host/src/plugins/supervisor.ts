@@ -4,6 +4,7 @@
 import type { Config } from "../config.ts";
 import { type ApiCallHandler, PluginProcess } from "./process.ts";
 import { type FailureKind, type FailureLog, PluginCallError } from "./failures.ts";
+import type { CapabilityStore } from "./capabilities.ts";
 import type { PluginStore } from "./store.ts";
 
 export class PluginSupervisor {
@@ -13,6 +14,7 @@ export class PluginSupervisor {
     private readonly store: PluginStore,
     private readonly config: Config,
     private readonly failures: FailureLog,
+    private readonly capabilities: CapabilityStore,
     private readonly onHostCall?: ApiCallHandler,
   ) {}
 
@@ -25,7 +27,7 @@ export class PluginSupervisor {
   private async start(id: string): Promise<void> {
     const plugin = this.store.get(id);
     if (!plugin) return;
-    const process = new PluginProcess(plugin, this.config, this.onHostCall);
+    const process = new PluginProcess(plugin, this.config, () => this.capabilities.approved(plugin.id), this.onHostCall);
     this.processes.set(id, process);
     try {
       await process.start();

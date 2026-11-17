@@ -20,7 +20,7 @@ export interface BridgeConfigFile {
 
 export interface TestHost {
   url: string;
-  dirs: { data: string; plugins: string; bridge: string; library: string };
+  dirs: { data: string; plugins: string; bridge: string; library: string; library2: string };
   /** What a real Bridge would read from the shared volume to reach the host. */
   bridgeConfig(): Promise<BridgeConfigFile>;
   /** Stops the host and starts a new one on the same directories. */
@@ -33,6 +33,13 @@ export interface TestHost {
 export interface TestHostOptions {
   /** Plugins to drop into the plugins folder: a fixture name, or "reference" for the real one. */
   plugins?: string[];
+  /**
+   * Capabilities to declare in a dropped plugin's manifest, by plugin name. `{library}` and
+   * `{library2}` stand for the two library folders.
+   */
+  capabilities?: Record<string, string[]>;
+  /** Files to create in both library folders (file name to content). */
+  libraryFiles?: Record<string, string>;
   callTimeoutMs?: number;
   failureThreshold?: number;
   komgaUrl?: string;
@@ -46,6 +53,7 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
     plugins: join(root, "plugins"),
     bridge: join(root, "plugin-bridge"),
     library: join(root, "library"),
+    library2: join(root, "library2"),
   };
   for (const dir of Object.values(dirs)) await mkdir(dir, { recursive: true });
   const bridgeJar = join(root, "bridge.jar");
@@ -54,6 +62,19 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
   for (const name of options.plugins ?? []) {
     const source = name === "reference" ? join(realPlugins, "reference") : join(fixturePlugins, name);
     await cp(source, join(dirs.plugins, name), { recursive: true });
+    const declared = options.capabilities?.[name];
+    if (declared) {
+      const file = join(dirs.plugins, name, "manifest.json");
+      const manifest = JSON.parse(await readFile(file, "utf8"));
+      manifest.capabilities = declared.map((c) =>
+        c.replaceAll("{library2}", dirs.library2).replaceAll("{library}", dirs.library)
+      );
+      await writeFile(file, JSON.stringify(manifest));
+    }
+  }
+  for (const [file, content] of Object.entries(options.libraryFiles ?? {})) {
+    await writeFile(join(dirs.library, file), content);
+    await writeFile(join(dirs.library2, file), content);
   }
 
   const config: Config = {
@@ -62,7 +83,7 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
     pluginsDir: dirs.plugins,
     bridgeDir: dirs.bridge,
     bridgeJar,
-    libraryRoots: [dirs.library],
+    libraryRoots: [dirs.library, dirs.library2],
     callTimeoutMs: options.callTimeoutMs ?? 5000,
     failureThreshold: options.failureThreshold ?? 3,
     hostUrl: "http://plugin-host.test:8080",

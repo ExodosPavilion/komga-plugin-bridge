@@ -2,10 +2,10 @@
 // the plugin's approved capabilities, then makes the real request to Komga's REST API with the
 // admin API key. The key lives only in this object and in the request headers it builds.
 import type { Config } from "../config.ts";
-import type { Capability, CapabilityStore } from "./capabilities.ts";
+import type { CapabilityStore, KomgaCapability } from "./capabilities.ts";
 
 interface Operation {
-  capability: Capability;
+  capability: KomgaCapability;
   request(args: unknown[]): { method: string; path: string; body?: unknown };
 }
 

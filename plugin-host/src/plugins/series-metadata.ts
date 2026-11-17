@@ -1,10 +1,16 @@
 // Series metadata as plugins supply it, and how several plugins' answers combine.
 import { mergeFirstWins } from "./merge.ts";
+/** Series metadata as the Plugin Host passes it to the Bridge: the plugins' answers, merged. */
 export interface SeriesMetadata {
+  /** The series title. */
   title?: string;
+  /** A description of the series. */
   summary?: string;
+  /** The series' publisher. */
   publisher?: string;
+  /** The series' language, as a BCP 47 tag. */
   language?: string;
+  /** The series' genres. */
   genres?: string[];
 }
 

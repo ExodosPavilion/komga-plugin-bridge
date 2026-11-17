@@ -1,18 +1,28 @@
 // Book metadata as plugins supply it, and how several plugins' answers combine.
 import { mergeFirstWins } from "./merge.ts";
+/** One person who worked on a book. */
 export interface BookAuthor {
+  /** The person's name. */
   name: string;
+  /** For example "writer", "penciller", "colorist". */
   role: string;
 }
 
+/** Book metadata as the Plugin Host passes it to the Bridge: the plugins' answers, merged. */
 export interface BookMetadata {
+  /** The book title. */
   title?: string;
+  /** A description of the book. */
   summary?: string;
+  /** The book's number within its series, as text. */
   number?: string;
   /** ISO calendar date, yyyy-mm-dd. */
   releaseDate?: string;
+  /** The people who worked on the book. */
   authors?: BookAuthor[];
+  /** The book's tags. */
   tags?: string[];
+  /** The book's ISBN. */
   isbn?: string;
 }
 

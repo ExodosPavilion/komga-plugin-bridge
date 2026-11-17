@@ -1,27 +1,46 @@
-// Local test runner for plugin authors: loads a plugin into a real Plugin Host (its own Deno
-// process, its own permissions) against stand-ins for Komga and the Bridge, so scan calls,
-// events and settings can be tried with no Komga installed.
-//
+/**
+ * A local test runner for Komga Plugin Bridge plugins: it loads a plugin into a real Plugin Host
+ * (its own Deno process, with only the permissions its capabilities grant) against stand-ins for
+ * Komga and the Bridge. Scan calls, events, settings and Komga data calls can be tried with no
+ * Komga installed.
+ *
+ * ```ts
+ * import { runPlugin } from "@komga-plugin-bridge/test-runner";
+ * import { assertEquals } from "jsr:@std/assert";
+ *
+ * Deno.test("supplies the series summary from its file", async () => {
+ *   const run = await runPlugin(".", {
+ *     library: { "My Series/plugin-metadata.json": '{"summary": "From a file"}' },
+ *   });
+ *   try {
+ *     const metadata = await run.seriesMetadata({ path: `${run.library}/My Series` });
+ *     assertEquals(metadata, { summary: "From a file" });
+ *   } finally {
+ *     await run.dispose();
+ *   }
+ * });
+ * ```
+ *
+ * Run the tests with `deno test --allow-all`: the plugin runs in a subprocess the host starts.
+ *
+ * Not affiliated with the Komga project.
+ *
+ * @module
+ */
 // This is seam 2 of the repository's own tests (tests/seam2/support) packaged for use from a
 // plugin project; the repository's tests use it too. The package stands alone: `vendor/` holds the
 // Plugin Host and stand-ins it needs, built from the repository by scripts/bundle.ts.
-//
-//   const run = await runPlugin(".", { settings: { greeting: "hi" } });
-//   try {
-//     assert.deepEqual(await run.seriesMetadata({ path: "/library/Series" }), { summary: "..." });
-//   } finally {
-//     await run.dispose();
-//   }
-//
-// Run tests with `deno test --allow-all`: the plugin runs in a subprocess the host starts.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { startTestHost } from "./vendor/tests/seam2/support/host.ts";
 import { book, FakeBridge, series } from "./vendor/tests/seam2/support/fake-bridge.ts";
-import type { FakeKomga } from "./vendor/tests/seam2/support/fake-komga.ts";
 import type { BookMetadata } from "./vendor/plugin-host/src/plugins/book-metadata.ts";
 import type { SeriesMetadata } from "./vendor/plugin-host/src/plugins/series-metadata.ts";
 
+export type { BookAuthor, BookMetadata } from "./vendor/plugin-host/src/plugins/book-metadata.ts";
+export type { SeriesMetadata } from "./vendor/plugin-host/src/plugins/series-metadata.ts";
+
+/** How {@link runPlugin} sets the plugin up. Every field is optional. */
 export interface RunPluginOptions {
   /** Setting values to save before the first call (validated against the manifest, as in the Plugin Manager). */
   settings?: Record<string, unknown>;
@@ -36,11 +55,33 @@ export interface RunPluginOptions {
   callTimeoutMs?: number;
 }
 
+/** The outcome of {@link PluginRun.saveSettings}. */
 export interface SettingsResult {
+  /** True when every value was valid and saved. */
   ok: boolean;
+  /** Why the values were refused, one reason per invalid value, when `ok` is false. */
   errors?: string[];
 }
 
+/** One request the plugin's `api.komga` calls made to the stand-in Komga. */
+export interface KomgaRequest {
+  /** The HTTP method, for example "GET" or "PATCH". */
+  method: string;
+  /** The Komga REST API path, for example "/api/v1/series/0TESTSERIES". */
+  path: string;
+  /** The API key the Plugin Host sent: never one the plugin holds. */
+  apiKey: string | null;
+  /** The JSON body sent, for a request that changes data. */
+  body?: unknown;
+}
+
+/** A direct line to the Plugin Host, as the Bridge reaches it, with the shared secret added. */
+export interface HostConnection {
+  /** Sends a request to the Plugin Host's HTTP interface, for example `/api/plugins`. */
+  request(path: string, init?: RequestInit): Promise<Response>;
+}
+
+/** A plugin running in a test Plugin Host, as {@link runPlugin} returns it. */
 export interface PluginRun {
   /** The plugin's id, from its manifest. */
   id: string;
@@ -63,14 +104,18 @@ export interface PluginRun {
    * data; needs the `komga:read` / `komga:write` capability). The library list the host reads
    * for itself (`GET /api/v1/libraries`) is not included.
    */
-  komgaRequests: FakeKomga["requests"];
+  komgaRequests: KomgaRequest[];
   /** The stand-in Bridge, for anything the helpers above do not cover. */
-  bridge: FakeBridge;
+  bridge: HostConnection;
   /** Stops the host, the stand-in Komga and deletes the temporary folders. */
   dispose(): Promise<void>;
 }
 
-/** Runs the plugin in the folder `pluginDir` (containing `manifest.json`). */
+/**
+ * Runs the plugin in the folder `pluginDir` (containing `manifest.json`) in a new test Plugin Host,
+ * approved for the capabilities its manifest declares. Throws when the host refuses the plugin or
+ * the initial settings are invalid. Call `dispose()` on the result when done.
+ */
 export async function runPlugin(pluginDir: string, options: RunPluginOptions = {}): Promise<PluginRun> {
   const dir = resolve(pluginDir);
   const manifest = JSON.parse(await readFile(join(dir, "manifest.json"), "utf8"));

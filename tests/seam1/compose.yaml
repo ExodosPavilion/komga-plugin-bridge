@@ -4,6 +4,7 @@
 #
 # The komga service is a normal stock Komga service; the two lines marked "added" are all the
 # plugin system asks of it.
+# The project name is set per checkout by run.sh (-p), so parallel worktrees do not collide.
 name: komga-plugin-bridge-seam1
 
 services:

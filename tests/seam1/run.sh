@@ -1,13 +1,17 @@
 #!/bin/sh
 # Seam 1: stock Komga plus the Plugin Host in real containers, driven through Komga's address.
 # Needs only Docker with Compose. Exits with the test run's exit code. KEEP=1 leaves the
-# containers up afterwards. Everything created is in the compose project
-# "komga-plugin-bridge-seam1" and is removed with it; nothing else on the machine is touched.
+# containers up afterwards. Everything created is in one compose project and is removed with it;
+# nothing else on the machine is touched. The project name is derived from this checkout's path
+# (komga-plugin-bridge-seam1-<hash>) so parallel worktrees never tear down each other's runs;
+# set SEAM1_PROJECT to override. No host ports are published, so ports cannot clash either.
 set -eu
 
 cd "$(dirname "$0")"
 if docker compose version >/dev/null 2>&1; then COMPOSE="docker compose"; else COMPOSE="docker-compose"; fi
-COMPOSE="$COMPOSE -p komga-plugin-bridge-seam1 -f compose.yaml"
+HASH="$(pwd | cksum | cut -d' ' -f1)"
+PROJECT="${SEAM1_PROJECT:-komga-plugin-bridge-seam1-$HASH}"
+COMPOSE="$COMPOSE -p $PROJECT -f compose.yaml"
 
 down() { $COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true; }
 trap '[ "${KEEP:-0}" = 1 ] || down' EXIT

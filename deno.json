@@ -1,6 +1,7 @@
 {
   "imports": {
-    "@komga-plugin-bridge/plugin-api": "./plugin-api/src/index.ts"
+    "@komga-plugin-bridge/plugin-api": "./plugin-api/src/index.ts",
+    "@komga-plugin-bridge/test-runner": "./plugin-test-runner/mod.ts"
   },
   "tasks": {
     "test:seam2": "deno test --allow-all tests/seam2/",

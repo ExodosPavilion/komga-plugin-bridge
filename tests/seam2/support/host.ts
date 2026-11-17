@@ -42,6 +42,7 @@ export interface TestHostOptions {
   libraryFiles?: Record<string, string>;
   callTimeoutMs?: number;
   failureThreshold?: number;
+  bridgeTimeoutMs?: number;
   komgaUrl?: string;
   komgaApiKey?: string;
 }
@@ -85,6 +86,7 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
     bridgeJar,
     libraryRoots: [dirs.library, dirs.library2],
     callTimeoutMs: options.callTimeoutMs ?? 5000,
+    bridgeTimeoutMs: options.bridgeTimeoutMs,
     failureThreshold: options.failureThreshold ?? 3,
     hostUrl: "http://plugin-host.test:8080",
     komgaUrl: options.komgaUrl,

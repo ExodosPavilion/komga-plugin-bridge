@@ -1,7 +1,7 @@
 // Seam 2 harness: starts the Plugin Host alone, in-process, in throwaway directories. The host is
 // driven only through its HTTP interface and by what is placed in its folders, exactly as
 // the Bridge and an admin would.
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -33,6 +33,8 @@ export interface TestHost {
 export interface TestHostOptions {
   /** Plugins to drop into the plugins folder: a fixture name, or "reference" for the real one. */
   plugins?: string[];
+  /** Plugin folders anywhere on disk, copied in under their manifest's `id` (the test runner uses this). */
+  pluginDirs?: string[];
   /**
    * Capabilities to declare in a dropped plugin's manifest, by plugin name. `{library}` and
    * `{library2}` stand for the two library folders.
@@ -60,8 +62,18 @@ export async function startTestHost(options: TestHostOptions = {}): Promise<Test
   const bridgeJar = join(root, "bridge.jar");
   await writeFile(bridgeJar, "not really a jar, but the host only copies it");
 
-  for (const name of options.plugins ?? []) {
-    const source = name === "reference" ? join(realPlugins, "reference") : join(fixturePlugins, name);
+  const sources: [string, string][] = (options.plugins ?? []).map((name) => [
+    name,
+    name === "reference" ? join(realPlugins, "reference") : join(fixturePlugins, name),
+  ]);
+  for (const dir of options.pluginDirs ?? []) {
+    let id = basename(dir);
+    try {
+      id = JSON.parse(await readFile(join(dir, "manifest.json"), "utf8")).id ?? id;
+    } catch { /* an invalid manifest is the host's to refuse */ }
+    sources.push([id, dir]);
+  }
+  for (const [name, source] of sources) {
     await cp(source, join(dirs.plugins, name), { recursive: true });
     const declared = options.capabilities?.[name];
     if (declared) {

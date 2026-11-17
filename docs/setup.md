@@ -51,6 +51,10 @@ Plugins that read or change Komga data go through the Plugin Host, which calls K
 
 The Plugin Manager's clash check (`GET /api/v1/plugin-manager/api/plugin-clashes`) reports `unavailable` when the key is missing or wrong.
 
+The key is needed even if no plugin touches Komga data. The Plugin Host reads Komga's library list with it to find each library's folder. Without the key, no plugin can read any library folder, so a plugin like the reference one supplies nothing.
+
+Instead of `KOMGA_API_KEY`, you can set `KOMGA_API_KEY_FILE` to the path of a file, inside the Plugin Host container, that holds the key. It suits Docker secrets. The file is read each time the key is needed, so a changed key needs no restart.
+
 ## Install a plugin
 
 Open the Plugin Manager as an admin at `http://<your komga>/api/v1/plugin-manager/`. There is also a "Plugin Manager" item at the end of Komga's settings menu.

@@ -117,20 +117,6 @@ class PluginManagerLinkFilter : OncePerRequestFilter() {
     override fun setContentLength(len: Int) {}
 
     override fun setContentLengthLong(len: Long) {}
-
-    override fun setHeader(
-      name: String,
-      value: String,
-    ) {
-      if (!name.equals("Content-Length", ignoreCase = true)) super.setHeader(name, value)
-    }
-
-    override fun addHeader(
-      name: String,
-      value: String,
-    ) {
-      if (!name.equals("Content-Length", ignoreCase = true)) super.addHeader(name, value)
-    }
   }
 
   companion object {

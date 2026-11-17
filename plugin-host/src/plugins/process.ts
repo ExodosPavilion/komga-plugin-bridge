@@ -93,7 +93,7 @@ export class PluginProcess {
     const id = this.nextId++;
     const reply = new Promise<unknown>((resolve, reject) => this.pending.set(id, { resolve, reject }));
     await this.writer.write(new TextEncoder().encode(JSON.stringify({ id, method, params }) + "\n"));
-    let timer: number | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new PluginCallError("timeout", `plugin call timed out after ${timeoutMs} ms`)), timeoutMs);
     });

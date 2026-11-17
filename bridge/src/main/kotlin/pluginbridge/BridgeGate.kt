@@ -10,7 +10,7 @@ import org.springframework.core.env.Environment
  * listed in supported-komga-versions.txt.
  *
  * Every feature is gated by this, without having to opt in: [BridgeGateFilter] stops Spring Boot
- * from importing ANY auto-configuration of this jar (other than the status reporter) on an
+ * from importing ANY auto-configuration of this jar (other than those in [ALWAYS_ON]) on an
  * unsupported version, so none of its beans exist and none of its classes are loaded. A feature
  * added to the Bridge later needs nothing beyond being a normal auto-configuration listed in
  * AutoConfiguration.imports. Code that is not a bean can ask [BridgeGate.evaluate] directly.
@@ -22,8 +22,18 @@ object BridgeGate {
   /** Name of the optional property that replaces the supported list (used by tests). */
   const val OVERRIDE_PROPERTY = "plugin-bridge.supported-versions"
 
-  /** The auto-configuration that must run on every Komga version, to report the state. */
-  const val ALWAYS_ON = "pluginbridge.BridgeStatusAutoConfiguration"
+  /**
+   * The auto-configurations that run on every Komga version, so the admin can see why the Bridge
+   * is inactive (ADR-0004): the status reporter, the Plugin Manager route, and the link to it in
+   * the web UIs. Each may use only Spring, Spring Security and the JDK, never Komga's classes.
+   * Metadata, events, filtering and host calls stay gated.
+   */
+  val ALWAYS_ON =
+    setOf(
+      "pluginbridge.BridgeStatusAutoConfiguration",
+      "pluginbridge.PluginManagerAutoConfiguration",
+      "pluginbridge.PluginManagerLinkAutoConfiguration",
+    )
 
   class Result(
     val active: Boolean,
@@ -87,6 +97,6 @@ class BridgeGateFilter :
   ): BooleanArray =
     BooleanArray(autoConfigurationClasses.size) { i ->
       val name = autoConfigurationClasses[i] ?: ""
-      active || !name.startsWith("pluginbridge.") || name == BridgeGate.ALWAYS_ON
+      active || !name.startsWith("pluginbridge.") || name in BridgeGate.ALWAYS_ON
     }
 }

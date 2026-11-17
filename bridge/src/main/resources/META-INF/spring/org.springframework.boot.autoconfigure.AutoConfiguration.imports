@@ -3,3 +3,4 @@ pluginbridge.BridgeAutoConfiguration
 pluginbridge.HostCallAutoConfiguration
 pluginbridge.ResponseFilterAutoConfiguration
 pluginbridge.PluginManagerAutoConfiguration
+pluginbridge.PluginManagerLinkAutoConfiguration

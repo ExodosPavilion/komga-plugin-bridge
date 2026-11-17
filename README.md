@@ -64,3 +64,9 @@ The Bridge forwards every Komga domain event (including `LibraryScanned`, which 
 ## Shared secret
 
 The Plugin Host generates a secret at first start (kept in its own `/state`, reused later) and writes it to `bridge.json` beside the Bridge jar. Every Plugin Host route except `public` ones needs `Authorization: Bearer <secret>`. The other way, the Bridge answers calls under `/plugin-bridge/host/` (outside Komga's own security) only with the same header (`HostCallFilter`); `GET /plugin-bridge/host/ping` is the liveness check. Later features add handlers behind that filter. No admin configuration is needed.
+
+## Plugin Manager
+
+Admins open it at `<komga>/api/v1/plugin-manager/` with their normal Komga login. `PluginManagerController` (Bridge) sits under Komga's `/api` prefix, so Komga's own security applies: anonymous gets 401, a non-admin 403. It forwards `.../api/...` to the Plugin Host's `/api/...` and everything else to its `/manager/...`, adding the shared secret; state-changing requests need `X-Requested-With` (the page sends it). The Plugin Host's port is never published. Disable keeps settings; remove deletes the plugin's folder and every row with a `plugin_id`.
+
+The page is `plugin-host/src/manager/ui/`: `index.html` and `app.js` load every file in `sections/` (name them `NN-name.js`, default-export `{ title, render(element) }`, use `h()` and `api()` from `lib.js`). Adding a section means adding a file; nothing else is edited. The Bridge reports itself with `POST /api/bridge/status {active, reason?, komgaVersion?}`, and the Bridge section shows it.

@@ -1,7 +1,9 @@
-// Keeps one process per enabled plugin and fans calls out to them. Failure handling beyond
-// "one plugin failing never affects the others" (recording, auto-disable) is a later ticket.
+// Keeps one process per enabled plugin and fans calls out to them. A plugin that fails or is
+// slow never affects the others; every failure is recorded, and a plugin that fails
+// `config.failureThreshold` times in a row is disabled until an admin re-enables it.
 import type { Config } from "../config.ts";
 import { type ApiCallHandler, PluginProcess } from "./process.ts";
+import { type FailureKind, type FailureLog, PluginCallError } from "./failures.ts";
 import type { PluginStore } from "./store.ts";
 
 export class PluginSupervisor {
@@ -10,19 +12,49 @@ export class PluginSupervisor {
   constructor(
     private readonly store: PluginStore,
     private readonly config: Config,
+    private readonly failures: FailureLog,
     private readonly onHostCall?: ApiCallHandler,
   ) {}
 
   async startEnabled(): Promise<void> {
     for (const plugin of this.store.list()) {
-      if (!plugin.enabled) continue;
-      const process = new PluginProcess(plugin, this.config, this.onHostCall);
-      this.processes.set(plugin.id, process);
-      try {
-        await process.start();
-      } catch (error) {
-        console.error(`[plugin-host] plugin ${plugin.id} failed to start: ${(error as Error).message}`);
-      }
+      if (plugin.enabled) await this.start(plugin.id);
+    }
+  }
+
+  private async start(id: string): Promise<void> {
+    const plugin = this.store.get(id);
+    if (!plugin) return;
+    const process = new PluginProcess(plugin, this.config, this.onHostCall);
+    this.processes.set(id, process);
+    try {
+      await process.start();
+    } catch (error) {
+      this.fail(id, "crash", `failed to start: ${(error as Error).message}`);
+    }
+  }
+
+  /** Admin action: turns a plugin on (for example after it was disabled automatically). */
+  async enable(id: string): Promise<boolean> {
+    if (!this.store.get(id)) return false;
+    this.failures.recordSuccess(id);
+    this.failures.markAutoDisabled(id, false);
+    this.store.setEnabled(id, true);
+    await this.processes.get(id)?.stop();
+    await this.start(id);
+    return true;
+  }
+
+  private fail(id: string, kind: FailureKind, reason: string): void {
+    console.error(`[plugin-host] plugin ${id} ${kind}: ${reason}`);
+    const count = this.failures.recordFailure(id, kind, reason);
+    if (count >= this.config.failureThreshold && this.store.get(id)?.enabled) {
+      console.error(`[plugin-host] plugin ${id} disabled after ${count} failures in a row`);
+      this.store.setEnabled(id, false);
+      this.failures.markAutoDisabled(id, true);
+      const process = this.processes.get(id);
+      this.processes.delete(id);
+      process?.stop().catch(() => {});
     }
   }
 
@@ -37,11 +69,14 @@ export class PluginSupervisor {
   /** Calls every running plugin; a plugin that fails or is slow is skipped, never fatal. */
   async callAll(method: string, params: unknown): Promise<{ pluginId: string; result: unknown }[]> {
     const settled = await Promise.all(
-      [...this.processes.entries()].filter(([, p]) => p.running).map(async ([pluginId, process]) => {
+      [...this.processes.entries()].map(async ([pluginId, process]) => {
         try {
-          return { pluginId, result: await process.call(method, params, this.config.callTimeoutMs) };
+          const result = await process.call(method, params, this.config.callTimeoutMs);
+          this.failures.recordSuccess(pluginId);
+          return { pluginId, result };
         } catch (error) {
-          console.error(`[plugin-host] plugin ${pluginId} ${method} failed: ${(error as Error).message}`);
+          const kind = error instanceof PluginCallError ? error.kind : "error";
+          this.fail(pluginId, kind, `${method}: ${(error as Error).message}`);
           return null;
         }
       }),

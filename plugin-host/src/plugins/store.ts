@@ -24,6 +24,14 @@ export class PluginStore {
       }));
   }
 
+  get(id: string): InstalledPlugin | undefined {
+    return this.list().find((p) => p.id === id);
+  }
+
+  setEnabled(id: string, enabled: boolean): void {
+    this.db.prepare("UPDATE plugins SET enabled = ? WHERE id = ?").run(enabled ? 1 : 0, id);
+  }
+
   /** Records a plugin found on disk. A new plugin starts enabled; an existing one keeps its state. */
   upsert(plugin: Omit<InstalledPlugin, "enabled">): void {
     this.db.prepare(

@@ -2,6 +2,7 @@
 // part behind its own module.
 import type { Config } from "./config.ts";
 import type { Database } from "./db/database.ts";
+import type { FailureLog } from "./plugins/failures.ts";
 import type { PluginSupervisor } from "./plugins/supervisor.ts";
 import type { PluginStore } from "./plugins/store.ts";
 import type { PluginData } from "./plugins/settings.ts";
@@ -14,4 +15,5 @@ export interface HostContext {
   supervisor: PluginSupervisor;
   /** Plugins refused at install, with reasons. In memory only. */
   refused: { folder: string; reason: string }[];
+  failures: FailureLog;
 }

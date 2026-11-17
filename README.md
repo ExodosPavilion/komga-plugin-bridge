@@ -44,3 +44,7 @@ In your compose file, add the Plugin Host, and give Komga the shared volume and 
 ## Komga data for plugins
 
 A hook receives `{ komga }` as its second argument: `getSeries`, `getBook`, `listLibraries` (capability `komga:read`) and `updateSeriesMetadata`, `updateBookMetadata` (capability `komga:write`). The Plugin Host checks the plugin's approved capabilities, then calls Komga's REST API itself with the admin API key from `KOMGA_URL` and `KOMGA_API_KEY`, set once on the Plugin Host. The key never reaches a plugin. Until the approval ticket lands, a folder-installed plugin is approved for the capabilities its `manifest.json` declares.
+
+## Failures
+
+Every plugin call has a time limit (`PLUGIN_HOST_CALL_TIMEOUT_MS`, default 8000). Each failure (timeout, crash, error) is recorded in the host database (`GET /api/failures?plugin=<id>`). After `PLUGIN_HOST_FAILURE_THRESHOLD` consecutive failures (default 3) the plugin is disabled; a success resets the count. Re-enable with `POST /api/plugins/enable {"id": "..."}`.

@@ -4,6 +4,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Config } from "../config.ts";
+import { PluginCallError } from "./failures.ts";
 import type { InstalledPlugin } from "./store.ts";
 
 const runnerFile = fileURLToPath(new URL("../runner/runner.ts", import.meta.url));
@@ -52,7 +53,7 @@ export class PluginProcess {
     this.readLines(child, ready);
     child.status.then(() => {
       this.alive = false;
-      for (const call of this.pending.values()) call.reject(new Error("plugin process exited"));
+      for (const call of this.pending.values()) call.reject(new PluginCallError("crash", "plugin process exited"));
       this.pending.clear();
       ready.reject(new Error("plugin process exited before it was ready"));
     });
@@ -60,13 +61,13 @@ export class PluginProcess {
   }
 
   async call(method: string, params: unknown, timeoutMs: number): Promise<unknown> {
-    if (!this.alive || !this.writer) throw new Error("plugin is not running");
+    if (!this.alive || !this.writer) throw new PluginCallError("crash", "plugin process is not running");
     const id = this.nextId++;
     const reply = new Promise<unknown>((resolve, reject) => this.pending.set(id, { resolve, reject }));
     await this.writer.write(new TextEncoder().encode(JSON.stringify({ id, method, params }) + "\n"));
     let timer: number | undefined;
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`plugin call timed out after ${timeoutMs} ms`)), timeoutMs);
+      timer = setTimeout(() => reject(new PluginCallError("timeout", `plugin call timed out after ${timeoutMs} ms`)), timeoutMs);
     });
     try {
       return await Promise.race([reply, timeout]);
@@ -77,10 +78,12 @@ export class PluginProcess {
   }
 
   async stop(): Promise<void> {
-    if (!this.child || !this.alive) return;
-    try {
-      this.child.kill("SIGKILL");
-    } catch { /* already gone */ }
+    if (!this.child) return;
+    if (this.alive) {
+      try {
+        this.child.kill("SIGKILL");
+      } catch { /* already gone */ }
+    }
     await this.writer?.close().catch(() => {});
     await this.child.status;
   }
@@ -111,7 +114,7 @@ export class PluginProcess {
         else if (message.id === undefined) ready.reject(new Error(message.error));
         else {
           const call = this.pending.get(message.id);
-          if (message.error !== undefined) call?.reject(new Error(message.error));
+          if (message.error !== undefined) call?.reject(new PluginCallError("error", String(message.error)));
           else call?.resolve(message.result);
         }
       }

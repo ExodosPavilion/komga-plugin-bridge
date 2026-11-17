@@ -105,9 +105,11 @@ Deno.test("the plugins are listed, and an admin can disable and enable one", asy
 
 Deno.test("the Plugin Manager shows that the Bridge is active", async () => {
   await startedAndClaimed();
-  const status = await waitFor("the Bridge's status report", async () => {
-    const { current } = JSON.parse((await as(ADMIN, `${MANAGER}/api/bridge-status`)).text);
-    return current;
+  // Two Komgas report here (the supported one and the deliberately unsupported one), so "current"
+  // may be either; the Plugin Manager must show the supported one's active report among them.
+  const status = await waitFor("an active Bridge report", async () => {
+    const { reports } = JSON.parse((await as(ADMIN, `${MANAGER}/api/bridge-status`)).text);
+    return reports.find((r: { active: boolean }) => r.active);
   });
   assert.equal(status.active, true);
   assert.match(status.komgaVersion, /^\d+\.\d+\.\d+/);

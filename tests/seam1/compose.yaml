@@ -22,6 +22,9 @@ services:
     build:
       context: ../..
       dockerfile: plugin-host/Dockerfile
+      args:
+        # The Bridge is compiled against the same Komga image the tests run.
+        KOMGA_IMAGE: gotson/komga:${KOMGA_VERSION:?set KOMGA_VERSION, or start through run.sh}
     labels: *labels
     depends_on:
       plugin-dropper:
@@ -56,20 +59,22 @@ services:
         condition: service_healthy
 
   komga:
-    image: gotson/komga:1.30.1
+    image: gotson/komga:${KOMGA_VERSION:?set KOMGA_VERSION, or start through run.sh}
     labels: *labels
     depends_on:
       host-proxy:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: -javaagent:/plugin-bridge/bridge.jar # added
+      # SEAM1_JAVA_OPTIONS is empty except when run.sh tests a Komga version that is not on the
+      # supported list yet; it then lists that version, so the check runs with the Bridge active.
+      JAVA_TOOL_OPTIONS: -javaagent:/plugin-bridge/bridge.jar ${SEAM1_JAVA_OPTIONS:-} # added
     volumes:
       - library:/data:ro
       - bridge:/plugin-bridge:ro # added
 
   # Stock Komga whose Bridge supported list is replaced by one this Komga is not on (test only).
   komga-unsupported:
-    image: gotson/komga:1.30.1
+    image: gotson/komga:${KOMGA_VERSION:?set KOMGA_VERSION, or start through run.sh}
     labels: *labels
     depends_on:
       plugin-host:
@@ -90,6 +95,7 @@ services:
       - komga
       - komga-unsupported
     environment:
+      EXPECTED_KOMGA_VERSION: ${KOMGA_VERSION:?}
       KOMGA_URL: http://komga:25600
       KOMGA_UNSUPPORTED_URL: http://komga-unsupported:25600
       HOST_PROXY_URL: http://host-proxy:8081

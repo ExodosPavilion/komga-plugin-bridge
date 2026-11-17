@@ -12,6 +12,15 @@ Deno.test("the reference plugin's series metadata appears after a scan", async (
       publisher: "Reference Press",
       genres: ["Action", "Comedy"],
     }),
+    "001.cbz.plugin-metadata.json": JSON.stringify({
+      title: "Plugin Book Title",
+      summary: "Book summary from the reference plugin",
+      number: "7",
+      releaseDate: "2021-03-04",
+      authors: [{ name: "Jane Doe", role: "writer" }],
+      tags: ["Plugin Tag"],
+      isbn: "9780306406157",
+    }),
   });
   await writeSeries(LIBRARY, "Plain Series");
   await createLibrary("Fixture", LIBRARY);
@@ -32,4 +41,26 @@ Deno.test("the reference plugin's series metadata appears after a scan", async (
 
   const response = await api(`/api/v1/series/${series.id}`);
   assert.equal((await response.json()).metadata.summary, "Supplied by the reference plugin");
+});
+
+Deno.test("the reference plugin's book metadata appears on the book after a scan", async () => {
+  await startedAndClaimed();
+  const series = await waitFor("the plugin series", () => seriesNamed("Plugin Series"));
+  const book = await waitFor("the plugin's metadata on the book", async () => {
+    const response = await api(`/api/v1/series/${series.id}/books`);
+    const found = (await response.json()).content?.[0];
+    return found?.metadata?.title === "Plugin Book Title" && found;
+  });
+  assert.equal(book.metadata.summary, "Book summary from the reference plugin");
+  assert.equal(book.metadata.number, "7");
+  assert.equal(book.metadata.releaseDate, "2021-03-04");
+  assert.equal(book.metadata.isbn, "9780306406157");
+  assert.deepEqual(book.metadata.authors, [{ name: "Jane Doe", role: "writer" }]);
+  // Komga stores tags in lower case.
+  assert.deepEqual(book.metadata.tags, ["plugin tag"]);
+
+  // A book without the plugin's file is scanned normally and gets nothing from the plugin.
+  const plain = await waitFor("the plain series", () => seriesNamed("Plain Series"));
+  const plainBook = (await (await api(`/api/v1/series/${plain.id}/books`)).json()).content[0];
+  assert.equal(plainBook.metadata.summary, "");
 });

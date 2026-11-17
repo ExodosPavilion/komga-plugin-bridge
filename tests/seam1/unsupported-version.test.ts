@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { writeSeries } from "./support/fixture-library.ts";
 import { ADMIN, startedAndClaimed, waitFor } from "./support/komga.ts";
+import { assertLinkInjected, pageAt } from "./support/link-page.ts";
 
 // A second Komga, started with the Bridge's supported list replaced by one the real version is
 // not on (see compose.yaml), stands in for "Komga was upgraded to an unverified version".
@@ -91,4 +92,40 @@ Deno.test("on an unsupported Komga version the Bridge is inactive, Komga is stoc
 
   // The supported Komga reported itself active.
   assert.ok(reports.some((r: { active: boolean }) => r.active));
+});
+
+Deno.test("on an unsupported Komga an admin still reaches the Plugin Manager, sees why the Bridge is inactive, and the link is present", async () => {
+  await startedAndClaimed();
+  await waitFor("the unsupported Komga to start", async () => {
+    const response = await fetch(`${UNSUPPORTED_URL}/api/v1/claim`);
+    await response.body?.cancel();
+    return response.ok;
+  });
+  const MANAGER = "/api/v1/plugin-manager";
+
+  // The page opens for the admin, as it does on a supported Komga.
+  const page = await unsupported(`${MANAGER}/`);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /Plugin Manager/);
+
+  // The page's Bridge section reads this route: the inactive state and its reason. (Both Komgas
+  // of this test report to the one Plugin Host, so look the inactive report up in the list.)
+  const status = await waitFor("the Plugin Manager to show the inactive Bridge", async () => {
+    const response = await unsupported(`${MANAGER}/api/bridge-status`);
+    if (!response.ok) return false;
+    const { reports } = await response.json();
+    return reports.find((r: { active: boolean }) => !r.active);
+  });
+  assert.match(status.reason, /not on the Bridge's supported list/);
+  assert.match(status.reason, /9\.9\.9/);
+
+  // Komga's own security still guards it.
+  const anonymous = await fetch(`${UNSUPPORTED_URL}${MANAGER}/`);
+  await anonymous.body?.cancel();
+  assert.equal(anonymous.status, 401);
+
+  // The link is present in both web UIs' pages.
+  for (const path of ["/", "/classic/", "/next/"]) {
+    assertLinkInjected(await pageAt(UNSUPPORTED_URL, path), `unsupported ${path}`);
+  }
 });

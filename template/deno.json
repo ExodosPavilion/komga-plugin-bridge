@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "@komga-plugin-bridge/plugin-api": "jsr:@komga-plugin-bridge/plugin-api@^0.1.0"
+  },
+  "tasks": {
+    "check": "deno check index.ts",
+    "package": "deno run --allow-read --allow-write scripts/package.ts"
+  },
+  "fmt": {
+    "lineWidth": 100
+  }
+}

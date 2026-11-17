@@ -1,0 +1,21 @@
+name: release
+# Push a tag such as v0.1.0 (matching manifest.json's version) to publish the plugin archive on a
+# GitHub release. The Plugin Manager installs the attached .zip.
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno task check
+      - run: deno task package
+      - run: gh release create "$GITHUB_REF_NAME" dist/*.zip --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

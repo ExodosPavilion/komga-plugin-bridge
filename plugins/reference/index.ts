@@ -8,9 +8,11 @@
 //   { "title": "...", "summary": "...", "number": "1", "releaseDate": "2020-05-17",
 //     "authors": [{ "name": "...", "role": "writer" }], "tags": ["..."], "isbn": "..." }
 
+import type { BookMetadata, Plugin, SeriesMetadata } from "@komga-plugin-bridge/plugin-api";
+
 const FILE = "plugin-metadata.json";
 
-async function readJsonOrNull(path: string): Promise<Record<string, unknown> | null> {
+async function readJsonOrNull<T>(path: string): Promise<T | null> {
   let text: string;
   try {
     text = await Deno.readTextFile(path);
@@ -23,18 +25,18 @@ async function readJsonOrNull(path: string): Promise<Record<string, unknown> | n
 
 export default {
   /** Called when Komga scans or refreshes a series. `series.path` is the series folder. */
-  async getSeriesMetadata({ series }: { series: { path: string } }) {
-    const file = await readJsonOrNull(`${series.path}/${FILE}`);
+  async getSeriesMetadata({ series }) {
+    const file = await readJsonOrNull<SeriesMetadata>(`${series.path}/${FILE}`);
     if (!file) return null;
     const { summary, publisher, genres } = file;
     return { summary, publisher, genres };
   },
 
   /** Called when Komga scans or refreshes a book. `book.path` is the book file. */
-  async getBookMetadata({ book }: { book: { path: string } }) {
-    const file = await readJsonOrNull(`${book.path}.${FILE}`);
+  async getBookMetadata({ book }) {
+    const file = await readJsonOrNull<BookMetadata>(`${book.path}.${FILE}`);
     if (!file) return null;
     const { title, summary, number, releaseDate, authors, tags, isbn } = file;
     return { title, summary, number, releaseDate, authors, tags, isbn };
   },
-};
+} satisfies Plugin;

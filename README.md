@@ -7,7 +7,9 @@ Adds plugin support to Komga. Not affiliated with the Komga project
 | --- | --- |
 | `bridge/` | The Bridge: a single jar (Kotlin) loaded into stock Komga as a Java agent ([ADR-0003](docs/adr/0003-bridge-loads-as-a-java-agent-on-the-system-class-path.md)). One class per feature, registered in `BridgeAutoConfiguration`. |
 | `plugin-host/` | The Plugin Host (Deno/TypeScript) and its `Dockerfile`, which also builds the Bridge into the image. |
-| `plugins/reference/` | The reference plugin. |
+| `plugin-api/` | The Plugin API package: types only, published to JSR as `@komga-plugin-bridge/plugin-api`. |
+| `template/` | Project template for a new plugin repository: manifest, entry, type-check, release packaging and a release workflow. |
+| `plugins/reference/` | The reference plugin (written against the package). |
 | `tests/seam1/` | Whole system in real containers, driven through Komga's address. |
 | `tests/seam2/` | The Plugin Host alone against a fake Komga and a fake Bridge. |
 | `prototypes/` | Throwaway prototypes, to be deleted. |
@@ -64,3 +66,7 @@ The Bridge forwards every Komga domain event (including `LibraryScanned`, which 
 ## Shared secret
 
 The Plugin Host generates a secret at first start (kept in its own `/state`, reused later) and writes it to `bridge.json` beside the Bridge jar. Every Plugin Host route except `public` ones needs `Authorization: Bearer <secret>`. The other way, the Bridge answers calls under `/plugin-bridge/host/` (outside Komga's own security) only with the same header (`HostCallFilter`); `GET /plugin-bridge/host/ping` is the liveness check. Later features add handlers behind that filter. No admin configuration is needed.
+
+## Writing a plugin (Plugin API package and template)
+
+`plugin-api/` holds the types for everything above (hooks, `api.settings`, `api.storage`, `api.komga`, events, the manifest). Plugins import it with `import type`, so nothing is loaded at run time. It is extended by adding a file and one export (see `plugin-api/README.md`). Copy `template/` to start a plugin repository: `deno task check` type-checks it, `deno task package` builds `dist/<id>-<version>.zip` (`manifest.json` and code at the archive root, deflate zip), and `.github/workflows/release.yml` attaches that zip to a GitHub release on a `v*` tag. Seam 2 (`tests/seam2/plugin-api-package.test.ts`) type-checks the template against the package, packages it and installs the archive into a Plugin Host. `deno task check:plugins` type-checks the reference plugin and fixtures. Until the package is published, resolve it locally with an import map entry pointing at `plugin-api/src/index.ts`, as the root `deno.json` does.

@@ -25,6 +25,21 @@ class PluginHostClient(
   fun post(
     path: String,
     body: Any,
+  ): JsonNode? {
+    // After a transport failure (host down or too slow) skip the host for a moment, so a scan
+    // of thousands of series does not pay the time limit for each one. Books skipped this way
+    // get their plugin metadata on the next metadata refresh.
+    if (System.nanoTime() < pausedUntilNanos) return null
+    val answer = send(path, body)
+    if (answer == null) pausedUntilNanos = System.nanoTime() + PAUSE_NANOS
+    return answer
+  }
+
+  @Volatile private var pausedUntilNanos = System.nanoTime() - 1
+
+  private fun send(
+    path: String,
+    body: Any,
   ): JsonNode? =
     try {
       val config = mapper.readTree(Files.readAllBytes(configFile))
@@ -52,6 +67,8 @@ class PluginHostClient(
     }
 
   companion object {
+    private val PAUSE_NANOS = Duration.ofSeconds(3).toNanos()
+
     /** bridge.json next to the jar this class was loaded from. */
     fun defaultConfigFile(): Path =
       try {

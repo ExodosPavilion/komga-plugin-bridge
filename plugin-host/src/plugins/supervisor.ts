@@ -78,10 +78,17 @@ export class PluginSupervisor {
     return this.processes.get(id)?.pid ?? null;
   }
 
-  /** Calls every running plugin; a plugin that fails or is slow is skipped, never fatal. */
-  async callAll(method: string, params: unknown): Promise<{ pluginId: string; result: unknown }[]> {
+  /**
+   * Calls every running plugin (or only those `only` accepts); a plugin that fails or is slow is
+   * skipped, never fatal. Failures are counted the same way for every kind of call.
+   */
+  async callAll(
+    method: string,
+    params: unknown,
+    only?: (pluginId: string) => boolean,
+  ): Promise<{ pluginId: string; result: unknown }[]> {
     const settled = await Promise.all(
-      [...this.processes.entries()].map(async ([pluginId, process]) => {
+      [...this.processes.entries()].filter(([pluginId]) => !only || only(pluginId)).map(async ([pluginId, process]) => {
         try {
           const result = await process.call(method, params, this.config.callTimeoutMs);
           this.failures.recordSuccess(pluginId);

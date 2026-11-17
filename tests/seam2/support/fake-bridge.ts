@@ -9,6 +9,14 @@ export interface SeriesRequest {
   libraryId: string;
 }
 
+export interface BookRequest {
+  id: string;
+  name: string;
+  path: string;
+  seriesId: string;
+  libraryId: string;
+}
+
 export class FakeBridge {
   constructor(private readonly config: BridgeConfigFile, private readonly baseUrl: string) {}
 
@@ -24,6 +32,25 @@ export class FakeBridge {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ series }),
+    }, secret);
+    return { status: response.status, body: await response.json().catch(() => null) };
+  }
+
+  async bookMetadata(book: BookRequest, secret?: string | null) {
+    const response = await this.request("/bridge/book-metadata", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ book }),
+    }, secret);
+    return { status: response.status, body: await response.json().catch(() => null) };
+  }
+
+  /** Forwards a Komga event, as the Bridge does. */
+  async event(type: string, data: Record<string, unknown> = {}, secret?: string | null) {
+    const response = await this.request("/bridge/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, data }),
     }, secret);
     return { status: response.status, body: await response.json().catch(() => null) };
   }
@@ -79,6 +106,14 @@ export class FakeBridge {
     return await response.json();
   }
 }
+
+export const book = (path: string, name = "Book"): BookRequest => ({
+  id: "0TESTBOOK",
+  name,
+  path,
+  seriesId: "0TESTSERIES",
+  libraryId: "0TESTLIB",
+});
 
 export const series = (path: string, name = "Series"): SeriesRequest => ({
   id: "0TESTSERIES",

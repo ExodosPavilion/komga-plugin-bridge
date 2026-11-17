@@ -48,3 +48,7 @@ A hook receives `{ komga }` as its second argument: `getSeries`, `getBook`, `lis
 ## Failures
 
 Every plugin call has a time limit (`PLUGIN_HOST_CALL_TIMEOUT_MS`, default 8000). Each failure (timeout, crash, error) is recorded in the host database (`GET /api/failures?plugin=<id>`). After `PLUGIN_HOST_FAILURE_THRESHOLD` consecutive failures (default 3) the plugin is disabled; a success resets the count. Re-enable with `POST /api/plugins/enable {"id": "..."}`.
+
+## Plugin API (what a hook receives)
+
+Every hook is called as `hook(params, api)`, with `api.settings` (`all()`, `get(name)`), `api.storage` (`get`, `set`, `delete`, `keys`) and `api.komga` (see above). On the wire, the plugin sends `{call, method: "settings.all" | "storage.get" | "komga.getSeries" | ..., args: [...]}` on stdout and the host answers `{replyTo, result | error}` on stdin. The host routes `komga.*` to the Komga data layer (checked against approved capabilities) and the rest to settings and storage. Failures are counted at the hook call, so an API error a plugin lets propagate counts once.

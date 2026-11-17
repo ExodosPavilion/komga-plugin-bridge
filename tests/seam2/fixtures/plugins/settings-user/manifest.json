@@ -1,0 +1,11 @@
+{
+  "id": "settings-user",
+  "version": "1.0.0",
+  "apiVersion": "1",
+  "settings": [
+    { "name": "greeting", "type": "string", "default": "hello", "help": "What to say" },
+    { "name": "retries", "type": "number", "default": 3, "help": "How many times to retry" },
+    { "name": "loud", "type": "boolean", "default": false, "help": "Shout it" },
+    { "name": "token", "type": "string", "secret": true, "help": "API token" }
+  ]
+}

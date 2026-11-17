@@ -28,6 +28,20 @@ export class FakeBridge {
     return { status: response.status, body: await response.json().catch(() => null) };
   }
 
+  async pluginSettings(pluginId: string) {
+    const response = await this.request(`/api/plugin-settings?plugin=${encodeURIComponent(pluginId)}`);
+    return { status: response.status, body: await response.json().catch(() => null) };
+  }
+
+  async saveSettings(pluginId: string, values: Record<string, unknown>) {
+    const response = await this.request("/api/plugin-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plugin: pluginId, values }),
+    });
+    return { status: response.status, body: await response.json().catch(() => null) };
+  }
+
   /** Status of a request whose body is not needed. */
   async status(path: string, secret?: string | null): Promise<number> {
     const response = await this.request(path, {}, secret);

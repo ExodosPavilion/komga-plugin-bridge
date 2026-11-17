@@ -9,6 +9,9 @@ import type { InstalledPlugin } from "./store.ts";
 const runnerFile = fileURLToPath(new URL("../runner/runner.ts", import.meta.url));
 const runnerDir = join(runnerFile, "..");
 
+/** Answers a Plugin API call a plugin makes (settings, storage) from inside its process. */
+export type ApiCallHandler = (pluginId: string, method: string, params: unknown) => Promise<unknown>;
+
 export class PluginProcess {
   private child?: Deno.ChildProcess;
   private writer?: WritableStreamDefaultWriter<Uint8Array>;
@@ -16,7 +19,11 @@ export class PluginProcess {
   private nextId = 1;
   private alive = false;
 
-  constructor(private readonly plugin: InstalledPlugin, private readonly config: Config) {}
+  constructor(
+    private readonly plugin: InstalledPlugin,
+    private readonly config: Config,
+    private readonly onApiCall?: (method: string, params: unknown) => Promise<unknown>,
+  ) {}
 
   get pid(): number | null {
     return this.alive && this.child ? this.child.pid : null;
@@ -77,6 +84,19 @@ export class PluginProcess {
     await this.child.status;
   }
 
+  private async answerApiCall(message: { api: number; method: string; params: unknown }) {
+    let reply: unknown;
+    try {
+      if (!this.onApiCall) throw new Error("the Plugin API is not available");
+      reply = { apiReply: message.api, result: (await this.onApiCall(message.method, message.params)) ?? null };
+    } catch (error) {
+      reply = { apiReply: message.api, error: (error as Error).message };
+    }
+    try {
+      await this.writer?.write(new TextEncoder().encode(JSON.stringify(reply) + "\n"));
+    } catch { /* the process went away */ }
+  }
+
   private async readLines(child: Deno.ChildProcess, ready: PromiseWithResolvers<void>) {
     let buffer = "";
     for await (const chunk of child.stdout.pipeThrough(new TextDecoderStream())) {
@@ -87,7 +107,8 @@ export class PluginProcess {
         buffer = buffer.slice(newline + 1);
         if (!line.trim()) continue;
         const message = JSON.parse(line);
-        if (message.ready) ready.resolve();
+        if (message.api !== undefined) void this.answerApiCall(message);
+        else if (message.ready) ready.resolve();
         else if (message.id === undefined) ready.reject(new Error(message.error));
         else {
           const call = this.pending.get(message.id);

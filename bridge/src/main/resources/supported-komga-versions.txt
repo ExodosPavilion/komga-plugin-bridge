@@ -2,3 +2,4 @@
 # This is the single place to update when a new Komga release passes the tests.
 # On any other version the Bridge is inactive and Komga behaves as stock Komga.
 1.30.1
+1.30.2
